@@ -1,6 +1,5 @@
-Hello
-
 Bonjour
 
 Au revoir
-Hallo
+
+Hello
