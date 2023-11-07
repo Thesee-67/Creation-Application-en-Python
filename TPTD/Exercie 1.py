@@ -20,5 +20,7 @@ if __name__ == '__main__':
             flag = True
         except ValueError as err:
             print(f"Merci de renter un nombre entier: {err}")
+        except RecursionError:
+            print("Le calcul est infini")
 else:
     flag = True
