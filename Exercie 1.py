@@ -10,10 +10,15 @@ def divEntier(x: int, y: int) -> int:
             x = x - y
             return divEntier(x, y) + 1
 
-if __name__ == '__main__':
-    try:
-         x = int(input("x: ")) 
-         y = int(input("y: "))
-         print(divEntier(x,y))
-    except ValueError as err:
-        print(f"Merci de renter un nombre entier: {err}")
+if __name__ == '__main__': 
+    flag = False
+    while not flag:
+        try:
+            x = int(input("x: ")) 
+            y = int(input("y: "))
+            print(divEntier(x,y))
+            flag = True
+        except ValueError as err:
+            print(f"Merci de renter un nombre entier: {err}")
+else:
+    flag = True
