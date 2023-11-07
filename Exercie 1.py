@@ -7,5 +7,9 @@ def divEntier(x: int, y: int) -> int:
     return divEntier(x, y) + 1
  
 if __name__ == '__main__':
-  print(divEntier(50,4))
-
+    try:
+         x = int(input("a: ")) 
+         y = int(input("b: "))
+         print(divEntier(x,y))
+    except ValueError:
+        print("Veuillez rentrer un nombre entier")
