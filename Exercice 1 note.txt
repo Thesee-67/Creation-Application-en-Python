@@ -1,0 +1,1 @@
+Ce code permet de calculer la division entière (division sans reste) de deux nombres entiers x et y, en utilisant la méthode de la division itérative (division by subtraction).
