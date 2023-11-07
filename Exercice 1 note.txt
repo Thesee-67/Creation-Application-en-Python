@@ -1,1 +1,5 @@
-Ce code permet de calculer la division entière (division sans reste) de deux nombres entiers x et y, en utilisant la méthode de la division itérative (division by subtraction).
+1.Ce code permet de calculer la division entière (division sans reste) de deux nombres entiers x et y, en utilisant la méthode de la division itérative (division by subtraction).
+
+2.A. Il est nécessaire de gérer ValueError car, en entrée, les utilisateurs peuvent taper n'importe quoi (des caractères, des chaînes de caractères, etc.), et non seulement des nombres entiers.
+
+3.A RecursionError: maximum recursion depth exceeded on ne peut pas diviser par zero
