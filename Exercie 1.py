@@ -15,8 +15,5 @@ if __name__ == '__main__':
          x = int(input("x: ")) 
          y = int(input("y: "))
          print(divEntier(x,y))
-    except RecursionError:
-        if y == 0:
-            raise ValueError("Veuiller rentre dans Y un nombre différent de 0")
     except ValueError as err:
         print(f"Merci de renter un nombre entier: {err}")
