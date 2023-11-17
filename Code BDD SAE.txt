@@ -1,0 +1,49 @@
+Code BDD SAE
+-- Création de la table pour les utilisateurs
+CREATE TABLE utilisateurs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    identite VARCHAR(255) NOT NULL,
+    alias VARCHAR(255) NOT NULL,
+    UNIQUE (alias)
+);
+
+-- Création de la table pour les salons
+CREATE TABLE salons (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nom VARCHAR(255) NOT NULL,
+    description VARCHAR(255),
+    validation_required BOOLEAN NOT NULL
+);
+
+-- Création de la table pour stocker les adhésions aux salons
+CREATE TABLE adhesions_salons (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    utilisateur_id INT,
+    salon_id INT,
+    FOREIGN KEY (utilisateur_id) REFERENCES utilisateurs(id),
+    FOREIGN KEY (salon_id) REFERENCES salons(id)
+);
+
+-- Création de la table pour les messages
+CREATE TABLE messages (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    utilisateur_id INT,
+    salon_id INT,
+    contenu TEXT,
+    date_envoi TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (utilisateur_id) REFERENCES utilisateurs(id),
+    FOREIGN KEY (salon_id) REFERENCES salons(id)
+);
+
+-- Création de la table pour les commandes du serveur
+CREATE TABLE commandes_serveur (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    commande VARCHAR(255) NOT NULL,
+    identifiant VARCHAR(255),
+    duree INT,
+    adresse_ip VARCHAR(15),
+    date_commande TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+
+
