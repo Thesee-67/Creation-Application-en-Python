@@ -1,9 +1,18 @@
 import socket
 import threading
 
-def handle_client(conn, address, flag_lock):
+def simulate_client():
+    # Cette fonction simule un client se connectant au serveur et envoyant le message "arret"
+    client_socket = socket.socket()
+    client_socket.connect(('127.0.0.1', 10000))  # Remplacez '127.0.0.1' par l'adresse IP du serveur si nécessaire
+    client_socket.send("arret".encode())
+    client_socket.close()
+
+def handle_client(conn, address, flag_lock, flag):
     reply = "Bonjour"
     flag2 = True
+    global clients
+
 
     try:
         while flag2:
@@ -16,9 +25,12 @@ def handle_client(conn, address, flag_lock):
             elif message.lower() == "arret":
                 print("Commande d'arrêt reçue. Arrêt du serveur.")
                 with flag_lock:
-                    global flag
-                    flag = False
+                    flag[0] = False
                     flag2 = False
+                    for conn in range(len(clients)):
+                        clients[conn].send("arret".encode())
+                    simulate_client()
+                    
             else:
                 conn.send(reply.encode())
                 print(f"J'ai envoyé le message à {address}: {reply}")
@@ -28,31 +40,30 @@ def handle_client(conn, address, flag_lock):
     except Exception as e:
         print(f"Une exception s'est produite avec {address}: {e}")
 
-    finally:
-        conn.close()
-        print(f"La connexion avec {address} a été fermée.")
 
 if __name__ == '__main__':
     port = 10000
-    flag = True
+    flag = [True]  # Utiliser une liste pour que la variable soit mutable et puisse être partagée entre les threads
     flag_lock = threading.Lock()
     client_threads = []  # Liste pour stocker les threads clients
+    clients = []
 
     server_socket = socket.socket()
     server_socket.bind(('0.0.0.0', port))
-    print("Je me connecte")
+    print("Serveur en attente de connexions...")
     server_socket.listen(5)
 
     try:
-        while flag:
+        while flag[0]:
             conn, address = server_socket.accept()
             print(f"Connexion établie avec {address}")
 
             # Créer un thread pour gérer la connexion client
-            client_thread = threading.Thread(target=handle_client, args=(conn, address, flag_lock))
+            client_thread = threading.Thread(target=handle_client, args=(conn, address, flag_lock, flag))
             client_thread.start()
 
-            # Ajouter le thread client à la liste
+            # Ajouter le client à la liste des clients
+            clients.append(conn)
             client_threads.append(client_thread)
 
     except KeyboardInterrupt:
@@ -64,4 +75,3 @@ if __name__ == '__main__':
         for thread in client_threads:
             thread.join()
         server_socket.close()
-  
