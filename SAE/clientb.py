@@ -1,25 +1,18 @@
 import socket
 import threading
-import time
 
 def receive_messages(client_socket, flag):
     while flag[0]:
         try:
             reply = client_socket.recv(1024).decode()
-            print("J'ai reçu le message:", reply)
-
-            # Ajouter une vérification pour le message "stop"
-            if reply.lower() == "stop":
-                print("Reçu un message 'stop'. Envoi de 'bye' au serveur.")
-                print("Veuillez appuez sur entrée pour vous déconnectez")
-                client_socket.send("bye".encode())
+            print(f"\n{reply}")
 
         except (socket.error, socket.timeout):
             # Gérer les erreurs de socket
             break
 
 def client_logic():
-    host = "127.0.0.2"
+    host = "127.0.0.1"
     port = 10000
     flag = [True]
 
@@ -31,16 +24,18 @@ def client_logic():
         receive_thread = threading.Thread(target=receive_messages, args=(client_socket, flag))
         receive_thread.start()
 
+        # Demander au client de choisir le topic
+        topic = input("Choisissez le topic (1 ou 2): ")
+        client_socket.send(topic.encode())
+
         while flag[0]:
             message = input("Entrez le message à envoyer (ou 'bye' pour quitter le serveur): ")
 
-            client_socket.send(message.encode())
-
-            if message == "bye":
+            if message.lower() == "bye":
                 print("Demande de déconnexion envoyée au serveur. Fermeture du client.")
                 flag[0] = False
-                client_socket.shutdown(socket.SHUT_RDWR)
-                client_socket.close()
+            else:
+                client_socket.send(message.encode())
 
         receive_thread.join()  # Attendre que le thread de réception se termine
 
@@ -48,6 +43,9 @@ def client_logic():
         print(f"Erreur de socket : {e}")
     except Exception as e:
         print(f"Une exception s'est produite : {e}")
+
+    finally:
+        client_socket.close()
 
 if __name__ == '__main__':
     client_logic()
