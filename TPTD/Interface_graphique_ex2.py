@@ -33,6 +33,7 @@ class MainWindow(QMainWindow):
 
         # Connexion des signaux aux méthodes correspondantes
         self.button_convertir.clicked.connect(self.__convertir_temperature)
+        self.combo_conversion.currentIndexChanged.connect(self.__clear_resultat)
         self.button_information.clicked.connect(self.__afficher_information)
 
         # Réglage de la taille de la fenêtre
@@ -49,9 +50,18 @@ class MainWindow(QMainWindow):
             else:
                 resultat = temperature - 273.15
 
-            self.label_resultat.setText(f"Résultat de la conversion : {resultat:.2f}")
+            if resultat < -273.15:
+                QMessageBox.warning(self, "Attention", "La température est inférieure au zéro absolu.")
+                self.label_resultat.clear()
+            else:
+                self.label_resultat.setText(f"Résultat de la conversion : {resultat:.2f}")
+
         except ValueError:
-            self.label_resultat.setText("Veuillez entrer une température valide.")
+            QMessageBox.warning(self, "Erreur de saisie", "Veuillez entrer une température valide.")
+            self.label_resultat.clear()
+
+    def __clear_resultat(self):
+        self.label_resultat.clear()
 
     def __afficher_information(self):
         message = "Ce programme permet de convertir la température entre Celsius et Kelvin.\n\n" \
