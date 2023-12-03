@@ -17,10 +17,10 @@ def handle_client(conn, address, flag_lock, flag, clients):
     try:
         while True:
             # Demander au client de choisir un topic
-            conn.send("Entrez le numéro du topic auquel vous souhaitez participer (Général, Blabla, Comptabilité, Informatique ou Marketing) :".encode())
+            conn.send("Entrez le numéro du topic auquel vous souhaitez participer (Général, BlaBla, Comptabilité, Informatique ou Marketing) :".encode())
             topic_choice = conn.recv(1024).decode()
 
-            if topic_choice in {"Général", "Blabla", "Comptabilité", "Informatique", "Marketing"}:
+            if topic_choice in {"Général", "BlaBla", "Comptabilité", "Informatique", "Marketing"}:
                 break  # Sortir de la boucle si le topic est valide
 
             conn.send("Le topic spécifié n'existe pas. Veuillez réessayer.".encode())
