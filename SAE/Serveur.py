@@ -9,19 +9,21 @@ def broadcast_message(message, clients, topic):
             except (socket.error, socket.timeout):
                 # Gérer les erreurs de socket
                 continue
+
 def handle_client(conn, address, flag_lock, flag, clients):
     reply = "J'ai bien reçu votre message"
     flag2 = True
 
     try:
-        # Demander au client de choisir un topic
-        conn.send("Entrez le numéro du topic auquel vous souhaitez participer (1 ou 2) : ".encode())
-        topic_choice = conn.recv(1024).decode()
+        while True:
+            # Demander au client de choisir un topic
+            conn.send("Entrez le numéro du topic auquel vous souhaitez participer (Général, Blabla, Comptabilité, Informatique ou Marketing) :".encode())
+            topic_choice = conn.recv(1024).decode()
 
-        if topic_choice not in {"1", "2"}:
-            conn.send("Le topic spécifié n'existe pas.".encode())
-            conn.close()
-            return
+            if topic_choice in {"Général", "Blabla", "Comptabilité", "Informatique", "Marketing"}:
+                break  # Sortir de la boucle si le topic est valide
+
+            conn.send("Le topic spécifié n'existe pas. Veuillez réessayer.".encode())
 
         conn.send(f"Bienvenue dans le topic {topic_choice} !".encode())
 
@@ -32,6 +34,8 @@ def handle_client(conn, address, flag_lock, flag, clients):
             message = conn.recv(1024).decode()
             if message.lower() == "bye":
                 print(f"Client {address} a quitté le topic {topic_choice}.")
+                with flag_lock:
+                    clients.remove((conn, topic_choice))
                 break
 
             broadcast_message(f"[Topic {topic_choice}] Client {address}: {message}", clients, topic_choice)
@@ -41,30 +45,23 @@ def handle_client(conn, address, flag_lock, flag, clients):
     except Exception as e:
         print(f"Une exception s'est produite avec {address}: {e}")
     finally:
-        # Retirer le client de la liste lorsqu'il se déconnecte
-        with flag_lock:
-            clients.remove((conn, topic_choice))
-            conn.close()  # Fermer la connexion du client
-
-# Reste du code inchangé
+        # Fermer la connexion du client
+        conn.close()
 
 def server_shell(flag_lock, flag, clients):
     while flag[0]:
-        command = input("Entrez 'stop' pour arrêter le serveur: ")
-        if command.lower() == "stop":
+        command = input("Entrez 'kill' pour arrêter le serveur: ")
+        if command.lower() == "kill":
             with flag_lock:
                 flag[0] = False
             for client_conn, _ in clients:
                 try:
-                    client_conn.send("bye".encode())
-                    # Attendre avant de fermer la connexion pour donner au client le temps de traiter le message
-                    client_conn.recv(1024)
+                    client_conn.send("Le serveur doit s'arrêter. Veuillez nous excuser pour la gêne occasionnée.".encode())
                     client_conn.close()
                 except (socket.error, socket.timeout):
-                    # Gérer les erreurs de socket
                     continue
             print("Arrêt du serveur et déconnexion des clients.")
-            break  # Ajouter cette ligne pour sortir de la boucle
+            break
 
 if __name__ == '__main__':
     port = 10000
@@ -83,18 +80,25 @@ if __name__ == '__main__':
     shell_thread.start()
 
     try:
+        server_socket.settimeout(1.0)  # Définir une temporisation sur le socket
+
         while flag[0]:
-            conn, address = server_socket.accept()
-            print(f"Connexion établie avec {address}")
+            try:
+                conn, address = server_socket.accept()
+                print(f"Connexion établie avec {address}")
 
-            # Créer un thread pour gérer la connexion client
-            client_thread = threading.Thread(target=handle_client, args=(conn, address, flag_lock, flag, clients))
-            client_thread.start()
+                # Créer un thread pour gérer la connexion client
+                client_thread = threading.Thread(target=handle_client, args=(conn, address, flag_lock, flag, clients))
+                client_thread.start()
 
-            # Ajouter le client à la liste des clients
-            with flag_lock:
-                clients.append((conn, ""))  # Ajouter un espace réservé pour le topic, à remplacer lors de la sélection du topic
-            client_threads.append(client_thread)
+                # Ajouter le client à la liste des clients
+                with flag_lock:
+                    clients.append((conn, ""))  # Ajouter un espace réservé pour le topic, à remplacer lors de la sélection du topic
+                client_threads.append(client_thread)
+
+            except socket.timeout:
+                # Cela permet au serveur de vérifier périodiquement si la commande "stop" a été donnée
+                pass
 
     except KeyboardInterrupt:
         print("\nFermeture du serveur suite à une interruption clavier.")

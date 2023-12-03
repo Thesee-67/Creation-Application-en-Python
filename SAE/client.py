@@ -1,51 +1,108 @@
+import sys
+from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QTextEdit, QLineEdit, QPushButton, QVBoxLayout, QHBoxLayout, QMessageBox
+from PyQt5.QtCore import Qt, pyqtSlot, QObject, pyqtSignal, QThread
+from PyQt5.QtGui import QTextCursor, QColor
 import socket
-import threading
 
-def receive_messages(client_socket, flag):
-    while flag[0]:
+class MessageSignal(QObject):
+    message_received = pyqtSignal(str)
+
+class ClientThread(QThread):
+    def __init__(self, client_socket, message_signal, flag):
+        super().__init__()
+        self.client_socket = client_socket
+        self.signal = message_signal
+        self.flag = flag
+
+    def run(self):
+        while self.flag[0]:
+            try:
+                reply = self.client_socket.recv(1024).decode()
+                self.signal.message_received.emit(reply)
+
+            except (socket.error, socket.timeout):
+                self.show_error_dialog("La connexion avec le serveur a été perdue.")
+                break
+
+    def show_error_dialog(self, error_message):
+        self.flag[0] = False
+        self.client_socket.close()
+        # Afficher un message d'erreur
+        QMessageBox.critical(None, "Erreur", error_message)
+
+class ClientGUI(QMainWindow):
+    def __init__(self):
+        super().__init__()
+
+        self.setWindowTitle("GuiGui Chat")
+        self.setGeometry(100, 100, 600, 400)
+
+        self.central_widget = QWidget(self)
+        self.setCentralWidget(self.central_widget)
+
+        self.chat_text = QTextEdit(self)
+        self.chat_text.setReadOnly(True)
+        self.chat_text.setStyleSheet("background-color: #F0F0F0; color: black;")
+
+        self.message_entry = QLineEdit(self)
+        self.send_button = QPushButton("Envoyer", self)
+        self.send_button.setStyleSheet("background-color: #25D366; color: white;")
+        self.send_button.clicked.connect(self.send_message)
+
+        top_layout = QVBoxLayout()
+        top_layout.addWidget(self.chat_text)
+
+        bottom_layout = QHBoxLayout()
+        bottom_layout.addWidget(self.message_entry)
+        bottom_layout.addWidget(self.send_button)
+
+        layout = QVBoxLayout(self.central_widget)
+        layout.addLayout(top_layout)
+        layout.addLayout(bottom_layout)
+
+        self.client_socket = socket.socket()
+        self.flag = [True]
+        self.receive_thread = ClientThread(self.client_socket, MessageSignal(), self.flag)
+        self.receive_thread.signal.message_received.connect(self.append_message)
+
+        self.connect_to_server()
+
+        # Afficher un message d'information
+        QMessageBox.information(self, "Bienvenue sur GuiGui Chat", "Bienvenue ! Pour quitter, tapez 'bye' ou fermez la fenêtre.")
+
+    def connect_to_server(self):
+        host = "127.0.0.1"
+        port = 10000
+
         try:
-            reply = client_socket.recv(1024).decode()
-            print(f"\n{reply}")
+            self.client_socket.connect((host, port))
+            self.receive_thread.start()
 
-        except (socket.error, socket.timeout):
-            # Gérer les erreurs de socket
-            break
+        except Exception as e:
+            self.show_error_dialog(f"Impossible de se connecter au serveur : {e}")
 
-def client_logic():
-    host = "127.0.0.1"
-    port = 10000
-    flag = [True]
+    @pyqtSlot(str)
+    def append_message(self, message):
+        self.chat_text.append(message)
+        cursor = self.chat_text.textCursor()
+        cursor.movePosition(QTextCursor.End)
+        self.chat_text.setTextCursor(cursor)
 
-    try:
-        client_socket = socket.socket()
-        client_socket.connect((host, port))
-
-        # Démarrer un thread pour la réception des messages du serveur
-        receive_thread = threading.Thread(target=receive_messages, args=(client_socket, flag))
-        receive_thread.start()
-
-        # Demander au client de choisir le topic
-        topic = input("Choisissez le topic (1 ou 2): ")
-        client_socket.send(topic.encode())
-
-        while flag[0]:
-            message = input("Entrez le message à envoyer (ou 'bye' pour quitter le serveur): ")
-
-            if message.lower() == "bye":
-                print("Demande de déconnexion envoyée au serveur. Fermeture du client.")
-                flag[0] = False
-            else:
-                client_socket.send(message.encode())
-
-        receive_thread.join()  # Attendre que le thread de réception se termine
-
-    except (socket.error, socket.timeout) as e:
-        print(f"Erreur de socket : {e}")
-    except Exception as e:
-        print(f"Une exception s'est produite : {e}")
-
-    finally:
-        client_socket.close()
+    @pyqtSlot()
+    def send_message(self):
+        message = self.message_entry.text()
+        if message.lower() == "bye":
+            self.flag[0] = False
+            self.client_socket.send(message.encode())
+            self.receive_thread.join()
+            self.client_socket.close()
+            sys.exit()
+        else:
+            self.client_socket.send(message.encode())
+            self.message_entry.clear()
 
 if __name__ == '__main__':
-    client_logic()
+    app = QApplication(sys.argv)
+    client_gui = ClientGUI()
+    client_gui.show()
+    sys.exit(app.exec_())
