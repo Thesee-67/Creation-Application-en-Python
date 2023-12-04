@@ -141,7 +141,7 @@ class ClientGUI(QMainWindow):
     def show_instructions(self):
         # Fonction pour afficher les instructions
         instructions = ("Bienvenue sur GuiGui Chat!\n"
-                        "Utilisez le bouton 'Changer de Topic' pour changer le sujet du chat.\n")
+                        "Utilisez le bouton 'Changer de Topic' pour changer de salon du tchat.\n")
         QMessageBox.information(self, "Instructions", instructions)
 
     def closeEvent(self, event):
