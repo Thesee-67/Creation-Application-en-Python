@@ -1,18 +1,19 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QTextEdit, QLineEdit, QPushButton, QVBoxLayout, QHBoxLayout, QMessageBox
-from PyQt5.QtCore import pyqtSlot, QObject, pyqtSignal, QThread, Qt
-from PyQt5.QtGui import QTextCursor
+from PyQt5.QtWidgets import *
+from PyQt5.QtCore import *
+from PyQt5.QtGui import *
 import socket
 
 class MessageSignal(QObject):
     message_received = pyqtSignal(str)
 
 class ClientThread(QThread):
-    def __init__(self, client_socket, message_signal, flag):
+    def __init__(self, client_socket, message_signal, flag, wait_condition):
         super().__init__()
         self.client_socket = client_socket
         self.signal = message_signal
         self.flag = flag
+        self.wait_condition = wait_condition
 
     def run(self):
         while self.flag[0]:
@@ -26,10 +27,19 @@ class ClientThread(QThread):
                 self.show_error_dialog("La connexion avec le serveur a été perdue.")
                 break
 
+        # Signaliser à la condition d'attente que le thread se termine
+        self.wait_condition.wakeAll()
+
     def show_error_dialog(self, error_message):
         self.flag[0] = False
         self.client_socket.close()
-        # Afficher un message d'erreur
+
+        # Utiliser QMetaObject.invokeMethod pour demander au thread principal d'afficher le message d'erreur
+        QMetaObject.invokeMethod(self, "_show_error_dialog", Qt.QueuedConnection, Q_ARG(str, error_message))
+
+    @pyqtSlot(str)
+    def _show_error_dialog(self, error_message):
+        # Afficher un message d'erreur depuis le thread principal
         QMessageBox.critical(None, "Erreur", error_message)
 
 class ClientGUI(QMainWindow):
@@ -69,7 +79,8 @@ class ClientGUI(QMainWindow):
 
         self.client_socket = socket.socket()
         self.flag = [True]
-        self.receive_thread = ClientThread(self.client_socket, MessageSignal(), self.flag)
+        self.wait_condition = QWaitCondition()  # Condition d'attente pour le thread
+        self.receive_thread = ClientThread(self.client_socket, MessageSignal(), self.flag, self.wait_condition)
         self.receive_thread.signal.message_received.connect(self.append_message)
 
         self.connect_to_server()
@@ -101,6 +112,8 @@ class ClientGUI(QMainWindow):
         if message.lower() == "bye":
             self.flag[0] = False
             self.client_socket.send(message.encode())
+            # Attendre que le thread de réception se termine
+            self.wait_condition.wait()
             self.client_socket.close()
             sys.exit()
         else:

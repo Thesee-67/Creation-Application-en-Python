@@ -71,7 +71,7 @@ def server_shell(flag_lock, flag, clients):
                 flag[0] = False
             for client_conn, _ in clients:
                 try:
-                    client_conn.send("Le serveur doit s'arrêter. Veuillez nous excuser pour la gêne occasionnée.".encode())
+                    client_conn.send("Le serveur doit s'arrêter. Veuillez nous excuser pour la gêne occasionnée. Veuillez fermer l'application en appuyant sur la croix".encode())
                     client_conn.close()
                 except (socket.error, socket.timeout):
                     continue
