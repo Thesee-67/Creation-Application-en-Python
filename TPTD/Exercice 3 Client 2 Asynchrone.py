@@ -3,13 +3,21 @@ import threading
 import time
 
 def rcv(client_socket):
-    reply = ""
-    while reply!="bye" and reply!="arret":
-        reply = client_socket.recv(1024).decode()
-        print(f"reply is : {reply}")
-        if (reply == "bye") or (reply == "arret"):
-            client_socket.send(reply.encode())
-    client_socket.close()
+    try:
+        reply = ""
+        while reply != "bye" and reply != "arret":
+            reply = client_socket.recv(1024).decode()
+            if not reply:
+                break  # La connexion a été fermée par le serveur
+            print(f"reply is : {reply}")
+
+        print("Server closed. Closing connection.")
+    except ConnectionAbortedError:
+        print("La connexion a été fermée par le serveur.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+    finally:
+        client_socket.close()
 
 def main():
     message = ""
@@ -23,16 +31,16 @@ def main():
     rcv_thread.start()
 
     try:
-        while message!="bye" and message!="arret":
+        while message != "bye" and message != "arret":
             time.sleep(0.3)
             message = input("Entrez le message à envoyer : ")
             client_socket.send(message.encode())
-    except OSError as err:
-        print(err)
-        print("La connection avec le serveur a été interrompue")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+    finally:
+        client_socket.close()
 
     rcv_thread.join()
-    client_socket.close()
 
 if __name__ == '__main__':
     main()
