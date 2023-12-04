@@ -11,8 +11,8 @@ def broadcast_message(message, clients, topic):
                 continue
 
 def handle_client(conn, address, flag_lock, flag, clients):
-    reply = "J'ai bien reçu votre message"
     flag2 = True
+    current_topic = ""
 
     try:
         while True:
@@ -21,24 +21,39 @@ def handle_client(conn, address, flag_lock, flag, clients):
             topic_choice = conn.recv(1024).decode()
 
             if topic_choice in {"Général", "BlaBla", "Comptabilité", "Informatique", "Marketing"}:
+                current_topic = topic_choice
                 break  # Sortir de la boucle si le topic est valide
 
             conn.send("Le topic spécifié n'existe pas. Veuillez réessayer.".encode())
 
-        conn.send(f"Bienvenue dans le topic {topic_choice} !".encode())
+        conn.send(f"Bienvenue dans le topic {current_topic} !".encode())
 
         with flag_lock:
-            clients.append((conn, topic_choice))
+            clients.append((conn, current_topic))
 
         while flag2:
             message = conn.recv(1024).decode()
-            if message.lower() == "bye":
-                print(f"Client {address} a quitté le topic {topic_choice}.")
+
+            if message.lower().startswith("change:"):
+                new_topic = message.split(":")[1].strip()
+                if new_topic in {"Général", "BlaBla", "Comptabilité", "Informatique", "Marketing"}:
+                    with flag_lock:
+                        clients.remove((conn, current_topic))
+                        clients.append((conn, new_topic))
+                    current_topic = new_topic
+                    # Envoyer un message de changement de topic uniquement au client concerné
+                    conn.send(f"Vous avez changé de topic. Bienvenue dans le topic {current_topic} !".encode())
+                else:
+                    conn.send("Le topic spécifié n'est pas valide. Veuillez réessayer.".encode())
+            elif message.lower() == "bye":
+                print(f"Client {address} a quitté le topic {current_topic}.")
                 with flag_lock:
-                    clients.remove((conn, topic_choice))
+                    clients.remove((conn, current_topic))
                 break
 
-            broadcast_message(f"[Topic {topic_choice}] Client {address}: {message}", clients, topic_choice)
+            # Exclure les messages de changement de topic du chat
+            if not message.lower().startswith("change:"):
+                broadcast_message(f"[Topic {current_topic}] Client {address}: {message}", clients, current_topic)
 
     except ConnectionResetError:
         print(f"La connexion avec {address} a été réinitialisée par le client.")

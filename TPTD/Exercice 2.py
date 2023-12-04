@@ -1,6 +1,6 @@
 if __name__ == '__main__':
     try:
-        file_name = "test.txt"
+        file_name = "co.txt"
         with open(file_name, 'r') as f:
             for l in f:
                 l = l.rstrip("\n\r")

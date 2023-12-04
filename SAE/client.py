@@ -1,7 +1,7 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QTextEdit, QLineEdit, QPushButton, QVBoxLayout, QHBoxLayout, QMessageBox
-from PyQt5.QtCore import Qt, pyqtSlot, QObject, pyqtSignal, QThread
-from PyQt5.QtGui import QTextCursor, QColor
+from PyQt5.QtCore import pyqtSlot, QObject, pyqtSignal, QThread, Qt
+from PyQt5.QtGui import QTextCursor
 import socket
 
 class MessageSignal(QObject):
@@ -18,6 +18,8 @@ class ClientThread(QThread):
         while self.flag[0]:
             try:
                 reply = self.client_socket.recv(1024).decode()
+                if not reply:
+                    break  # Arrêter la boucle si la connexion est fermée
                 self.signal.message_received.emit(reply)
 
             except (socket.error, socket.timeout):
@@ -49,12 +51,17 @@ class ClientGUI(QMainWindow):
         self.send_button.setStyleSheet("background-color: #25D366; color: white;")
         self.send_button.clicked.connect(self.send_message)
 
+        self.change_button = QPushButton("Changer de Topic", self)
+        self.change_button.setStyleSheet("background-color: #FFD600; color: black;")
+        self.change_button.clicked.connect(self.change_topic)
+
         top_layout = QVBoxLayout()
         top_layout.addWidget(self.chat_text)
 
         bottom_layout = QHBoxLayout()
         bottom_layout.addWidget(self.message_entry)
         bottom_layout.addWidget(self.send_button)
+        bottom_layout.addWidget(self.change_button)
 
         layout = QVBoxLayout(self.central_widget)
         layout.addLayout(top_layout)
@@ -94,12 +101,28 @@ class ClientGUI(QMainWindow):
         if message.lower() == "bye":
             self.flag[0] = False
             self.client_socket.send(message.encode())
-            self.receive_thread.join()
             self.client_socket.close()
             sys.exit()
         else:
             self.client_socket.send(message.encode())
             self.message_entry.clear()
+
+    @pyqtSlot()
+    def change_topic(self):
+        new_topic = self.message_entry.text()
+        if new_topic.lower() in {"général", "blabla", "comptabilité", "informatique", "marketing"}:
+            self.client_socket.send(f"change:{new_topic}".encode())
+            self.message_entry.clear()
+        else:
+            QMessageBox.warning(self, "Erreur de topic", "Le topic spécifié n'est pas valide.")
+
+    def closeEvent(self, event):
+        # Redéfinir la méthode closeEvent pour gérer la fermeture de la fenêtre
+        self.flag[0] = False  # Arrêter le thread de réception
+        self.client_socket.close()  # Fermer la socket
+        self.wait_condition.wakeAll()  # Réveiller le thread de réception
+        self.receive_thread.wait()  # Attendre que le thread de réception se termine
+        event.accept()  # Accepter la fermeture de la fenêtre
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
