@@ -8,12 +8,13 @@ class MessageSignal(QObject):
     message_received = pyqtSignal(str)
 
 class ClientThread(QThread):
-    def __init__(self, client_socket, message_signal, flag, wait_condition):
+    def __init__(self, client_socket, message_signal, flag, wait_condition, mutex):
         super().__init__()
         self.client_socket = client_socket
         self.signal = message_signal
         self.flag = flag
         self.wait_condition = wait_condition
+        self.mutex = mutex
 
     def run(self):
         while self.flag[0]:
@@ -24,11 +25,16 @@ class ClientThread(QThread):
                 self.signal.message_received.emit(reply)
 
             except (socket.error, socket.timeout):
-                self.show_error_dialog("La connexion avec le serveur a été perdue.")
                 break
 
+        # Pause pour laisser le temps au thread principal de gérer la fermeture de la fenêtre
+        self.msleep(100)
+
         # Signaliser à la condition d'attente que le thread se termine
-        self.wait_condition.wakeAll()
+        with QMutexLocker(self.mutex):  # Utilisez QMutexLocker pour garantir la libération du mutex
+            self.wait_condition.wakeAll()
+
+        self.client_socket.close()  # Fermer la socket
 
     def show_error_dialog(self, error_message):
         self.flag[0] = False
@@ -72,32 +78,29 @@ class ClientGUI(QMainWindow):
         self.change_button.clicked.connect(self.change_topic)
 
         info_button = QPushButton(self)
-        info_button.setIcon(QIcon("information_icon.png"))  # Remplacez "information_icon.png" par le chemin de votre icône d'information
+        info_button.setIcon(QIcon("SAE/Question.png"))  # Remplacez "information_icon.png" par le chemin de votre icône d'information
         info_button.clicked.connect(self.show_instructions)
 
         top_layout = QVBoxLayout()
         top_layout.addWidget(header_label)  # Ajout de l'en-tête
         top_layout.addWidget(self.chat_text)
 
-        bottom_layout = QVBoxLayout()
+        bottom_layout = QHBoxLayout()
         bottom_layout.addWidget(self.message_entry)
         bottom_layout.addWidget(self.send_button)
         bottom_layout.addWidget(self.change_button)
-
-        side_layout = QVBoxLayout()
-        side_layout.addStretch()
-        side_layout.addWidget(info_button)
-        side_layout.addStretch()
+        bottom_layout.addWidget(info_button)
 
         layout = QVBoxLayout(self.central_widget)
         layout.addLayout(top_layout)
         layout.addLayout(bottom_layout)
-        layout.addLayout(side_layout)
+
+        self.mutex = QMutex()  # Créez un objet QMutex
 
         self.client_socket = socket.socket()
         self.flag = [True]
         self.wait_condition = QWaitCondition()  # Condition d'attente pour le thread
-        self.receive_thread = ClientThread(self.client_socket, MessageSignal(), self.flag, self.wait_condition)
+        self.receive_thread = ClientThread(self.client_socket, MessageSignal(), self.flag, self.wait_condition, self.mutex)
         self.receive_thread.signal.message_received.connect(self.append_message)
 
         self.connect_to_server()
@@ -123,16 +126,8 @@ class ClientGUI(QMainWindow):
     @pyqtSlot()
     def send_message(self):
         message = self.message_entry.text()
-        if message.lower() == "bye":
-            self.flag[0] = False
-            self.client_socket.send(message.encode())
-            # Attendre que le thread de réception se termine
-            self.wait_condition.wait()
-            self.client_socket.close()
-            sys.exit()
-        else:
-            self.client_socket.send(message.encode())
-            self.message_entry.clear()
+        self.client_socket.send(message.encode())
+        self.message_entry.clear()
 
     @pyqtSlot()
     def change_topic(self):
@@ -146,7 +141,6 @@ class ClientGUI(QMainWindow):
     def show_instructions(self):
         # Fonction pour afficher les instructions
         instructions = ("Bienvenue sur GuiGui Chat!\n"
-                        "Pour quitter, tapez 'bye' ou fermez la fenêtre.\n"
                         "Utilisez le bouton 'Changer de Topic' pour changer le sujet du chat.\n")
         QMessageBox.information(self, "Instructions", instructions)
 
@@ -154,8 +148,13 @@ class ClientGUI(QMainWindow):
         # Redéfinir la méthode closeEvent pour gérer la fermeture de la fenêtre
         self.flag[0] = False  # Arrêter le thread de réception
         self.client_socket.close()  # Fermer la socket
-        self.wait_condition.wakeAll()  # Réveiller le thread de réception
+
+        # Attendre que le thread de réception se termine
+        with QMutexLocker(self.mutex):  # Utilisez QMutexLocker pour garantir la libération du mutex
+            self.wait_condition.wakeAll()
+        self.receive_thread.quit()  # Ajouter cette ligne pour quitter le thread de manière propre
         self.receive_thread.wait()  # Attendre que le thread de réception se termine
+
         event.accept()  # Accepter la fermeture de la fenêtre
 
 if __name__ == '__main__':
