@@ -49,6 +49,12 @@ class ClientGUI(QMainWindow):
         self.setWindowTitle("GuiGui Chat")
         self.setGeometry(100, 100, 600, 400)
 
+        # Ajout de l'en-tête avec le titre et les informations sur l'application
+        header_label = QLabel("<h1 style='color: white;'>GUIGUi Tchat Compagnie</h1>"
+                              "<p style='color: white;'>Une application de chat conviviale.</p>", self)
+        header_label.setAlignment(Qt.AlignCenter)
+        header_label.setStyleSheet("background-color: #3498db;")
+
         self.central_widget = QWidget(self)
         self.setCentralWidget(self.central_widget)
 
@@ -65,17 +71,28 @@ class ClientGUI(QMainWindow):
         self.change_button.setStyleSheet("background-color: #FFD600; color: black;")
         self.change_button.clicked.connect(self.change_topic)
 
+        info_button = QPushButton(self)
+        info_button.setIcon(QIcon("information_icon.png"))  # Remplacez "information_icon.png" par le chemin de votre icône d'information
+        info_button.clicked.connect(self.show_instructions)
+
         top_layout = QVBoxLayout()
+        top_layout.addWidget(header_label)  # Ajout de l'en-tête
         top_layout.addWidget(self.chat_text)
 
-        bottom_layout = QHBoxLayout()
+        bottom_layout = QVBoxLayout()
         bottom_layout.addWidget(self.message_entry)
         bottom_layout.addWidget(self.send_button)
         bottom_layout.addWidget(self.change_button)
 
+        side_layout = QVBoxLayout()
+        side_layout.addStretch()
+        side_layout.addWidget(info_button)
+        side_layout.addStretch()
+
         layout = QVBoxLayout(self.central_widget)
         layout.addLayout(top_layout)
         layout.addLayout(bottom_layout)
+        layout.addLayout(side_layout)
 
         self.client_socket = socket.socket()
         self.flag = [True]
@@ -84,9 +101,6 @@ class ClientGUI(QMainWindow):
         self.receive_thread.signal.message_received.connect(self.append_message)
 
         self.connect_to_server()
-
-        # Afficher un message d'information
-        QMessageBox.information(self, "Bienvenue sur GuiGui Chat", "Bienvenue ! Pour quitter, tapez 'bye' ou fermez la fenêtre.")
 
     def connect_to_server(self):
         host = "127.0.0.1"
@@ -128,6 +142,13 @@ class ClientGUI(QMainWindow):
             self.message_entry.clear()
         else:
             QMessageBox.warning(self, "Erreur de topic", "Le topic spécifié n'est pas valide.")
+
+    def show_instructions(self):
+        # Fonction pour afficher les instructions
+        instructions = ("Bienvenue sur GuiGui Chat!\n"
+                        "Pour quitter, tapez 'bye' ou fermez la fenêtre.\n"
+                        "Utilisez le bouton 'Changer de Topic' pour changer le sujet du chat.\n")
+        QMessageBox.information(self, "Instructions", instructions)
 
     def closeEvent(self, event):
         # Redéfinir la méthode closeEvent pour gérer la fermeture de la fenêtre
