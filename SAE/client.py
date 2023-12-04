@@ -56,8 +56,8 @@ class ClientGUI(QMainWindow):
         self.setGeometry(100, 100, 600, 400)
 
         # Ajout de l'en-tête avec le titre et les informations sur l'application
-        header_label = QLabel("<h1 style='color: white;'>GUIGUi Tchat Compagnie</h1>"
-                              "<p style='color: white;'>Une application de chat conviviale.</p>", self)
+        header_label = QLabel("<h1 style='color: white;'>GUIGUI Tchat Compagnie</h1>"
+                              "<p style='color: white;'>Une application de messagerie conviviale.</p>", self)
         header_label.setAlignment(Qt.AlignCenter)
         header_label.setStyleSheet("background-color: #3498db;")
 
