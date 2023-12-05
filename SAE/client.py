@@ -52,7 +52,7 @@ class ClientGUI(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle("GuiGui Chat")
+        self.setWindowTitle("GuiGui TChat")
         self.setGeometry(100, 100, 600, 400)
 
         # Ajout de l'en-tête avec le titre et les informations sur l'application
@@ -132,7 +132,7 @@ class ClientGUI(QMainWindow):
     @pyqtSlot()
     def change_topic(self):
         new_topic = self.message_entry.text()
-        if new_topic.lower() in {"général", "blabla", "comptabilité", "informatique", "marketing"}:
+        if new_topic.lower() in {"Général", "BlaBla", "Comptabilité", "Informatique", "Marketing"}:
             self.client_socket.send(f"change:{new_topic}".encode())
             self.message_entry.clear()
         else:
@@ -140,9 +140,12 @@ class ClientGUI(QMainWindow):
 
     def show_instructions(self):
         # Fonction pour afficher les instructions
-        instructions = ("Bienvenue sur GuiGui Chat!\n"
-                        "Utilisez le bouton 'Changer de Topic' pour changer de salon du tchat.\n")
-        QMessageBox.information(self, "Instructions", instructions)
+        instructions = ("Bienvenue sur GuiGui Tchat!\n"
+                        "Utilisez le bouton 'Changer de Topic' pour changer de salon du tchat.\n"
+                        "Quand vous recevez le message d'arret du serveur veuillez fermer l'application.\n"
+                        "Si vous avez des problèmes n'hésitez pas à contactez l'équipe technique via l'adresse mail suivante olivier.guittet@uha.fr\n"
+                        "Cordialement l'équipe technique.")
+        QMessageBox.information(self, "Informations", instructions)
 
     def closeEvent(self, event):
         # Redéfinir la méthode closeEvent pour gérer la fermeture de la fenêtre
@@ -162,4 +165,3 @@ if __name__ == '__main__':
     client_gui = ClientGUI()
     client_gui.show()
     sys.exit(app.exec_())
-
