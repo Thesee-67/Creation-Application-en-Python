@@ -92,16 +92,20 @@ def handle_client(conn, address, flag_lock, flag, clients):
     try:
         print(f"Connexion établie avec {address}.")
 
-        # Demander au client de choisir un topic
-        conn.send("Entrez le nom du topic auquel vous souhaitez participer (Général, BlaBla, Comptabilité, Informatique ou Marketing) :".encode())
-        topic_choice = conn.recv(1024).decode()
+        topic_choice_valid = False
 
-        if topic_choice in {"Général", "BlaBla", "Comptabilité", "Informatique", "Marketing"}:
-            current_topic = topic_choice
-            with flag_lock:
-                clients.append((conn, current_topic))
+        while not topic_choice_valid:
+            conn.send("Entrez le nom du premier topic auquel vous souhaitez participer (Général, BlaBla, Comptabilité, Informatique ou Marketing) :".encode())
+            first_topic_choice = conn.recv(1024).decode()
 
-        conn.send(f"Bienvenue dans le topic {current_topic} !".encode())
+            if first_topic_choice in {"Général", "BlaBla", "Comptabilité", "Informatique", "Marketing"}:
+                current_topic = first_topic_choice
+                with flag_lock:
+                    clients.append((conn, current_topic))
+                    conn.send(f"Bienvenue dans le topic {current_topic} !".encode())
+                topic_choice_valid = True  # Sortir de la boucle si le topic est valide
+            else:
+                conn.send("Le premier topic spécifié n'est pas valide. Veuillez réessayer.".encode())
 
         while flag2:
             message = conn.recv(1024).decode()

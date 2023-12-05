@@ -3,6 +3,7 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 import socket
+import warnings
 
 class MessageSignal(QObject):
     message_received = pyqtSignal(str)
@@ -47,6 +48,54 @@ class ClientThread(QThread):
     def _show_error_dialog(self, error_message):
         # Afficher un message d'erreur depuis le thread principal
         QMessageBox.critical(None, "Erreur", error_message)
+
+class TopicDialog(QDialog):
+    def __init__(self, options, parent=None):
+        super(TopicDialog, self).__init__(parent)
+
+        self.setWindowTitle("Changer de Topic")
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #2C3E50;
+            }
+            QLabel {
+                color: white;
+            }
+            QComboBox {
+                background-color: #34495E;
+                color: white;
+                min-width: 300px; /* Augmentez la largeur du menu déroulant */
+            }
+            QPushButton {
+                background-color: black;
+                color: white;
+                padding: 5px;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: black;
+            }
+        """)
+
+        layout = QVBoxLayout(self)
+
+        label = QLabel("Choisissez un nouveau topic:")
+        label.setStyleSheet("color: white;")
+
+        self.comboBox = QComboBox()
+        self.comboBox.addItems(options)
+
+        buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttonBox.accepted.connect(self.accept)
+        buttonBox.rejected.connect(self.reject)
+
+        layout.addWidget(label)
+        layout.addWidget(self.comboBox)
+        layout.addWidget(buttonBox)
+
+    def selectedTopic(self):
+        return self.comboBox.currentText()
+
 
 class ClientGUI(QMainWindow):
     def __init__(self):
@@ -131,21 +180,51 @@ class ClientGUI(QMainWindow):
 
     @pyqtSlot()
     def change_topic(self):
-        new_topic = self.message_entry.text()
-        if new_topic.lower() in {"Général", "BlaBla", "Comptabilité", "Informatique", "Marketing"}:
+        # Créer une instance de TopicDialog
+        topic_dialog = TopicDialog(["Général", "BlaBla", "Comptabilité", "Informatique", "Marketing"], self)
+        result = topic_dialog.exec_()
+
+        if result == QDialog.Accepted:
+            new_topic = topic_dialog.selectedTopic()
             self.client_socket.send(f"change:{new_topic}".encode())
             self.message_entry.clear()
-        else:
-            QMessageBox.warning(self, "Erreur de topic", "Le topic spécifié n'est pas valide.")
 
     def show_instructions(self):
-        # Fonction pour afficher les instructions
-        instructions = ("Bienvenue sur GuiGui Tchat!\n"
-                        "Utilisez le bouton 'Changer de Topic' pour changer de salon du tchat.\n"
-                        "Quand vous recevez le message d'arret du serveur veuillez fermer l'application.\n"
-                        "Si vous avez des problèmes n'hésitez pas à contactez l'équipe technique via l'adresse mail suivante olivier.guittet@uha.fr\n"
+        # Créer une instance de QMessageBox
+        info_box = QMessageBox(self)
+
+        # Appliquer le style uniquement à cette instance
+        info_box.setStyleSheet("""
+            QMessageBox {
+                background-color: orange; /* Fond blanc */
+            }
+            QLabel {
+                color: black;
+            }
+            QPushButton {
+                background-color: #3498DB;
+                color: white;
+                padding: 5px;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: #2980B9;
+            }
+        """)
+
+        # Configurer le texte et le titre de la boîte de dialogue
+        info_box.setWindowTitle("Informations")
+        info_box.setText("Bienvenue sur GuiGui Tchat!<br><br>"
+                        "Utilisez le bouton 'Changer de Topic' pour changer de salon du tchat.<br><br>"
+                        "Quand vous recevez le message d'arrêt du serveur, veuillez fermer l'application.<br><br>"
+                        "Si vous avez des problèmes, n'hésitez pas à contacter l'équipe technique via l'adresse mail suivante <a href='mailto:olivier.guittet@uha.fr'>olivier.guittet@uha.fr</a>.<br><br>"
                         "Cordialement l'équipe technique.")
-        QMessageBox.information(self, "Informations", instructions)
+
+        # Ajouter un bouton "OK" à la boîte de dialogue
+        info_box.addButton(QMessageBox.Ok)
+
+        # Afficher la boîte de dialogue
+        info_box.exec_()
 
     def closeEvent(self, event):
         # Redéfinir la méthode closeEvent pour gérer la fermeture de la fenêtre
