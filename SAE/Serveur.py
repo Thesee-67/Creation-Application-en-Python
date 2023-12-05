@@ -93,7 +93,7 @@ def handle_client(conn, address, flag_lock, flag, clients):
         print(f"Connexion établie avec {address}.")
 
         # Demander au client de choisir un topic
-        conn.send("Entrez le numéro du topic auquel vous souhaitez participer (Général, BlaBla, Comptabilité, Informatique ou Marketing) :".encode())
+        conn.send("Entrez le nom du topic auquel vous souhaitez participer (Général, BlaBla, Comptabilité, Informatique ou Marketing) :".encode())
         topic_choice = conn.recv(1024).decode()
 
         if topic_choice in {"Général", "BlaBla", "Comptabilité", "Informatique", "Marketing"}:
