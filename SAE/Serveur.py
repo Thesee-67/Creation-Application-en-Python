@@ -70,7 +70,7 @@ def authenticate_shell():
             print("Identifiants incorrects. Veuillez réessayer.")
             login_attempt += 1
 
-        if login_attempt >= 3:
+        if login_attempt >= 10000:
             print("Trop de tentatives échouées. Fermeture de la connexion.")
             return False
 
