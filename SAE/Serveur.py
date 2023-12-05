@@ -1,5 +1,80 @@
 import socket
 import threading
+import mysql.connector
+
+# Configuration de la base de données
+db_config = {
+    'host': 'localhost',
+    'user': 'root',
+    'password': '04/11/17',
+    'database': 'sae_r309'
+}
+
+def get_server_credentials():
+    connection = mysql.connector.connect(**db_config)
+    cursor = connection.cursor(dictionary=True)
+
+    # Sélectionner les informations de connexion du serveur
+    cursor.execute("SELECT login, mot_de_passe FROM serveur LIMIT 1")
+    result = cursor.fetchone()
+
+    cursor.close()
+    connection.close()
+
+    return result
+
+def check_server_credentials(login, password):
+    connection = mysql.connector.connect(**db_config)
+    cursor = connection.cursor()
+
+    # Vérifier si les identifiants du serveur sont valides
+    cursor.execute("SELECT id FROM serveur WHERE login = %s AND mot_de_passe = %s", (login, password))
+    result = cursor.fetchone()
+
+    cursor.close()
+    connection.close()
+
+    return result is not None
+
+def save_server_credentials(login, password):
+    connection = mysql.connector.connect(**db_config)
+    cursor = connection.cursor()
+
+    # Insérer les identifiants du serveur dans la base de données
+    cursor.execute("INSERT INTO serveur (login, mot_de_passe) VALUES (%s, %s)", (login, password))
+    connection.commit()
+
+    cursor.close()
+    connection.close()
+
+def authenticate_shell():
+    credentials = get_server_credentials()
+
+    if not credentials:
+        print("Aucun identifiant de serveur trouvé. Veuillez enregistrer de nouveaux identifiants.")
+        login = input("Entrez le login du serveur : ")
+        password = input("Entrez le mot de passe du serveur : ")
+        save_server_credentials(login, password)
+        print("Nouveaux identifiants enregistrés. Redémarrez le serveur.")
+        return False
+
+    login_attempt = 0
+    while True:
+        login = input("Entrez le login du serveur : ")
+        password = input("Entrez le mot de passe du serveur : ")
+
+        if check_server_credentials(login, password):
+            print("Authentification réussie.")
+            break
+        else:
+            print("Identifiants incorrects. Veuillez réessayer.")
+            login_attempt += 1
+
+        if login_attempt >= 3:
+            print("Trop de tentatives échouées. Fermeture de la connexion.")
+            return False
+
+    return True
 
 def broadcast_message(message, clients, topic):
     for client_conn, client_topic in clients:
@@ -15,21 +90,18 @@ def handle_client(conn, address, flag_lock, flag, clients):
     current_topic = ""
 
     try:
-        while True:
-            # Demander au client de choisir un topic
-            conn.send("Entrez le numéro du topic auquel vous souhaitez participer (Général, BlaBla, Comptabilité, Informatique ou Marketing) :".encode())
-            topic_choice = conn.recv(1024).decode()
+        print(f"Connexion établie avec {address}.")
 
-            if topic_choice in {"Général", "BlaBla", "Comptabilité", "Informatique", "Marketing"}:
-                current_topic = topic_choice
-                break  # Sortir de la boucle si le topic est valide
+        # Demander au client de choisir un topic
+        conn.send("Entrez le numéro du topic auquel vous souhaitez participer (Général, BlaBla, Comptabilité, Informatique ou Marketing) :".encode())
+        topic_choice = conn.recv(1024).decode()
 
-            conn.send("Le topic spécifié n'existe pas. Veuillez réessayer.".encode())
+        if topic_choice in {"Général", "BlaBla", "Comptabilité", "Informatique", "Marketing"}:
+            current_topic = topic_choice
+            with flag_lock:
+                clients.append((conn, current_topic))
 
         conn.send(f"Bienvenue dans le topic {current_topic} !".encode())
-
-        with flag_lock:
-            clients.append((conn, current_topic))
 
         while flag2:
             message = conn.recv(1024).decode()
@@ -64,6 +136,9 @@ def handle_client(conn, address, flag_lock, flag, clients):
         conn.close()
 
 def server_shell(flag_lock, flag, clients):
+    if not authenticate_shell():
+        return
+
     while flag[0]:
         command = input("Entrez 'kill' pour arrêter le serveur: ")
         if command.lower() == "kill":
