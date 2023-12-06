@@ -36,6 +36,19 @@ def check_server_credentials(login, password):
 
     return result is not None
 
+def check_user_credentials(identifiant, mot_de_passe):
+    connection = mysql.connector.connect(**db_config)
+    cursor = connection.cursor()
+
+    # Vérifier si l'identifiant et le mot de passe correspondent à un utilisateur dans la base de données
+    cursor.execute("SELECT id FROM utilisateurs WHERE identifiant = %s AND mot_de_passe = %s", (identifiant, mot_de_passe))
+    result = cursor.fetchone()
+
+    cursor.close()
+    connection.close()
+
+    return result is not None
+
 def save_server_credentials(login, password):
     connection = mysql.connector.connect(**db_config)
     cursor = connection.cursor()
@@ -46,6 +59,41 @@ def save_server_credentials(login, password):
 
     cursor.close()
     connection.close()
+
+def user_exists(pseudo):
+    connection = mysql.connector.connect(**db_config)
+    cursor = connection.cursor()
+
+    # Vérifier si l'utilisateur existe dans la base de données
+    cursor.execute("SELECT id FROM utilisateurs WHERE pseudo = %s", (pseudo,))
+    result = cursor.fetchone()
+
+    cursor.close()
+    connection.close()
+
+    return result is not None
+
+def insert_user_profile(pseudo, nom, prenom, identifiant, mot_de_passe, adresse_ip):
+    connection = mysql.connector.connect(**db_config)
+    cursor = connection.cursor()
+
+    try:
+        # Insérer le profil utilisateur dans la base de données
+        cursor.execute("INSERT INTO utilisateurs (pseudo, nom, prenom, identifiant, mot_de_passe, adresse_ip) VALUES (%s, %s, %s, %s, %s, %s)",
+               (pseudo, nom, prenom, identifiant, mot_de_passe, adresse_ip))
+        connection.commit()
+        print(f"Inserted user profile for {pseudo} successfully.")
+    except Exception as e:
+        print(f"Error inserting user profile for {pseudo}: {e}")
+        connection.rollback()
+
+    cursor.close()
+    connection.close()
+
+def get_client_ip(conn):
+    # Obtenez l'adresse IP du client à partir de la connexion
+    client_address = conn.getpeername()[0]
+    return client_address
 
 def authenticate_shell():
     credentials = get_server_credentials()
@@ -70,7 +118,7 @@ def authenticate_shell():
             print("Identifiants incorrects. Veuillez réessayer.")
             login_attempt += 1
 
-        if login_attempt >= 10000:
+        if login_attempt >= 3:
             print("Trop de tentatives échouées. Fermeture de la connexion.")
             return False
 
@@ -85,12 +133,88 @@ def broadcast_message(message, clients, topic):
                 # Gérer les erreurs de socket
                 continue
 
+def create_user_profile(conn):
+    conn.send("Bienvenue !\n".encode())
+
+    while True:
+        conn.send("Avez-vous déjà un compte ? (Oui/Non): ".encode())
+        response = conn.recv(1024).decode().lower()
+
+        if response == "oui":
+            # Demander à l'utilisateur de saisir son identifiant et son mot de passe
+            login_attempt = 0
+            while login_attempt < 3:
+                conn.send("Entrez votre identifiant : ".encode())
+                identifiant = conn.recv(1024).decode()
+
+                conn.send("Entrez votre mot de passe : ".encode())
+                mot_de_passe = conn.recv(1024).decode()
+
+                # Vérifier que l'identifiant et le mot de passe sont des chaînes non vides
+                if not identifiant or not mot_de_passe:
+                    conn.send("Identifiant et mot de passe invalides. Réessayez.\n".encode())
+                    login_attempt += 1
+                    continue
+
+                # Ajouter la vérification des identifiants dans la base de données
+                if check_user_credentials(identifiant, mot_de_passe):
+                    conn.send("Authentification réussie ! Bienvenue.\n".encode())
+                    break
+                else:
+                    conn.send("Identifiants incorrects. Réessayez.\n".encode())
+                    login_attempt += 1
+
+                if login_attempt >= 3:
+                    conn.send("Trop de tentatives échouées. Fermeture de la connexion.\n".encode())
+                    conn.close()
+                    return
+
+            break 
+
+        elif response == "non":
+            conn.send("Veuillez compléter votre profil.\n".encode())
+
+            conn.send("Entrez votre pseudo : ".encode())
+            pseudo = conn.recv(1024).decode()
+
+            conn.send("Entrez votre nom : ".encode())
+            nom = conn.recv(1024).decode()
+
+            conn.send("Entrez votre prénom : ".encode())
+            prenom = conn.recv(1024).decode()
+
+            while True:
+                conn.send("Entrez votre identifiant : ".encode())
+                identifiant = conn.recv(1024).decode()
+
+                conn.send("Entrez votre mot de passe : ".encode())
+                mot_de_passe = conn.recv(1024).decode()
+
+                # Ajouter la vérification des identifiants dans la base de données
+                if user_exists(identifiant):
+                    conn.send("Identifiant déjà utilisé. Réessayez avec un autre identifiant.\n".encode())
+                else:
+                    insert_user_profile(pseudo, nom, prenom, identifiant, mot_de_passe, get_client_ip(conn))
+                    conn.send("Profil créé avec succès !\n".encode())
+                    conn.send("Bienvenue !\n".encode())
+                    break
+            break  
+        else:
+            conn.send("Réponse non valide. Veuillez répondre par 'Oui' ou 'Non'.\n".encode())
+
 def handle_client(conn, address, flag_lock, flag, clients):
     flag2 = True
     current_topic = ""
 
     try:
         print(f"Connexion établie avec {address}.")
+
+        pseudo = conn.recv(1024).decode()
+        user_exists_flag = user_exists(pseudo)
+        conn.send(str(user_exists_flag).encode())
+
+        if not user_exists_flag:
+            create_user_profile(conn)
 
         topic_choice_valid = False
 

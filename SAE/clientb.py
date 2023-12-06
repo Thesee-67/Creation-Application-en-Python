@@ -3,10 +3,11 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 import socket
-import warnings
+from PyQt5.QtCore import QThread, pyqtSignal, Qt, QMutex, QMutexLocker, QWaitCondition, QMetaObject
 
 class MessageSignal(QObject):
     message_received = pyqtSignal(str)
+    error_occurred = pyqtSignal(str)
 
 class ClientThread(QThread):
     def __init__(self, client_socket, message_signal, flag, wait_condition, mutex):
@@ -18,24 +19,25 @@ class ClientThread(QThread):
         self.mutex = mutex
 
     def run(self):
-        while self.flag[0]:
-            try:
+        try:
+            while self.flag[0]:
                 reply = self.client_socket.recv(1024).decode()
                 if not reply:
                     break  # Arrêter la boucle si la connexion est fermée
                 self.signal.message_received.emit(reply)
 
-            except (socket.error, socket.timeout):
-                break
+        except (socket.error, socket.timeout) as e:
+            self.signal.error_occurred.emit(f"Erreur de connexion : {e}")
 
-        # Pause pour laisser le temps au thread principal de gérer la fermeture de la fenêtre
-        self.msleep(100)
+        finally:
+            # Pause pour laisser le temps au thread principal de gérer la fermeture de la fenêtre
+            self.msleep(100)
 
-        # Signaliser à la condition d'attente que le thread se termine
-        with QMutexLocker(self.mutex):  # Utilisez QMutexLocker pour garantir la libération du mutex
-            self.wait_condition.wakeAll()
+            # Signaliser à la condition d'attente que le thread se termine
+            with QMutexLocker(self.mutex):  # Utilisez QMutexLocker pour garantir la libération du mutex
+                self.wait_condition.wakeAll()
 
-        self.client_socket.close()  # Fermer la socket
+            self.client_socket.close()  # Fermer la socket
 
     def show_error_dialog(self, error_message):
         self.flag[0] = False
@@ -64,7 +66,7 @@ class TopicDialog(QDialog):
             QComboBox {
                 background-color: #34495E;
                 color: white;
-                min-width: 300px; /* Augmentez la largeur du menu déroulant */
+                min-width: 300px;
             }
             QPushButton {
                 background-color: black;
@@ -96,6 +98,79 @@ class TopicDialog(QDialog):
     def selectedTopic(self):
         return self.comboBox.currentText()
 
+
+class ProfileDialog(QDialog):
+    def __init__(self, parent=None):
+        super(ProfileDialog, self).__init__(parent)
+
+        self.setWindowTitle("Créer un Profil")
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #2C3E50;
+            }
+            QLabel {
+                color: white;
+            }
+            QLineEdit {
+                background-color: #34495E;
+                color: white;
+            }
+            QPushButton {
+                background-color: black;
+                color: white;
+                padding: 5px;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: black;
+            }
+        """)
+
+        layout = QVBoxLayout(self)
+
+        label = QLabel("Bienvenue ! Veuillez compléter votre profil.")
+        label.setStyleSheet("color: white;")
+
+        self.username_entry = QLineEdit(self)
+        self.username_entry.setPlaceholderText("Entrez votre nom d'utilisateur")
+
+        self.nom_entry = QLineEdit(self)
+        self.nom_entry.setPlaceholderText("Entrez votre nom")
+
+        self.prenom_entry = QLineEdit(self)
+        self.prenom_entry.setPlaceholderText("Entrez votre prénom")
+
+        self.identifiant_entry = QLineEdit(self)
+        self.identifiant_entry.setPlaceholderText("Entrez votre identifiant")
+
+        self.mot_de_passe_entry = QLineEdit(self)
+        self.mot_de_passe_entry.setPlaceholderText("Entrez votre mot de passe")
+        self.mot_de_passe_entry.setEchoMode(QLineEdit.Password)
+
+        self.create_button = QPushButton("Créer le Profil", self)
+        self.create_button.clicked.connect(self.create_profile)
+
+        layout.addWidget(label)
+        layout.addWidget(self.username_entry)
+        layout.addWidget(self.nom_entry)
+        layout.addWidget(self.prenom_entry)
+        layout.addWidget(self.identifiant_entry)
+        layout.addWidget(self.mot_de_passe_entry)
+        layout.addWidget(self.create_button)
+
+    def create_profile(self):
+        username = self.username_entry.text()
+        nom = self.nom_entry.text()
+        prenom = self.prenom_entry.text()
+        identifiant = self.identifiant_entry.text()
+        mot_de_passe = self.mot_de_passe_entry.text()
+
+        if username and nom and prenom and identifiant and mot_de_passe:
+            profile_message = f"create_profile:{username}:{nom}:{prenom}:{identifiant}:{mot_de_passe}"
+            self.accept()
+            self.parent().client_socket.send(profile_message.encode())
+        else:
+            QMessageBox.warning(self, "Erreur", "Veuillez remplir tous les champs.")
 
 class ClientGUI(QMainWindow):
     def __init__(self):
@@ -150,7 +225,7 @@ class ClientGUI(QMainWindow):
         self.flag = [True]
         self.wait_condition = QWaitCondition()  # Condition d'attente pour le thread
         self.receive_thread = ClientThread(self.client_socket, MessageSignal(), self.flag, self.wait_condition, self.mutex)
-        self.receive_thread.signal.message_received.connect(self.append_message)
+        self.receive_thread.signal.message_received.connect(self.handle_message)
 
         self.connect_to_server()
 
@@ -162,23 +237,43 @@ class ClientGUI(QMainWindow):
             self.client_socket.connect((host, port))
             self.receive_thread.start()
 
+            # Vérifier si le profil existe et créer un profil si nécessaire
+            self.setup_profile()
+
         except Exception as e:
             self.show_error_dialog(f"Impossible de se connecter au serveur : {e}")
 
-    @pyqtSlot(str)
-    def append_message(self, message):
-        self.chat_text.append(message)
-        cursor = self.chat_text.textCursor()
-        cursor.movePosition(QTextCursor.End)
-        self.chat_text.setTextCursor(cursor)
+    def setup_profile(self):
+        profile_message = "check_profile"
+        self.client_socket.send(profile_message.encode())
+        reply = self.client_socket.recv(1024).decode()
 
-    @pyqtSlot()
+        # Commentez ou supprimez ces lignes
+        # print(f"Received profile check reply: {reply}")
+
+        if reply.lower() == "create_profile":
+            print("Create profile requested")
+            # Demander au client de créer un profil
+            self.show_profile_dialog()
+
+
+
+    def handle_message(self, message):
+        # Gérer le message de profil
+        if message.lower().startswith("profile:"):
+            _, profile_info = message.split(":", 1)
+            QMessageBox.information(self, "Profil", profile_info)
+        else:
+            self.chat_text.append(message)
+            cursor = self.chat_text.textCursor()
+            cursor.movePosition(QTextCursor.End)
+            self.chat_text.setTextCursor(cursor)
+
     def send_message(self):
         message = self.message_entry.text()
         self.client_socket.send(message.encode())
         self.message_entry.clear()
 
-    @pyqtSlot()
     def change_topic(self):
         # Créer une instance de TopicDialog
         topic_dialog = TopicDialog(["Général", "BlaBla", "Comptabilité", "Informatique", "Marketing"], self)
