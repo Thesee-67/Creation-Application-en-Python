@@ -64,7 +64,7 @@ class TopicDialog(QDialog):
             QComboBox {
                 background-color: #34495E;
                 color: white;
-                min-width: 300px; /* Augmentez la largeur du menu déroulant */
+                min-width: 300px;
             }
             QPushButton {
                 background-color: black;
