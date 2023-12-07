@@ -1,6 +1,7 @@
 import socket
 import threading
 import mysql.connector
+import re
 
 # Configuration de la base de données
 db_config = {
@@ -35,6 +36,10 @@ def check_server_credentials(login, password):
     connection.close()
 
     return result is not None
+
+def is_valid_email(email):
+    email_pattern = re.compile(r'^[\w\.-]+@[a-zA-Z\d\.-]+\.[a-zA-Z]{2,}$')
+    return bool(re.match(email_pattern, email))
 
 def check_user_credentials(identifiant, mot_de_passe):
     connection = mysql.connector.connect(**db_config)
@@ -73,14 +78,14 @@ def user_exists(pseudo):
 
     return result is not None
 
-def insert_user_profile(pseudo, nom, prenom, identifiant, mot_de_passe, adresse_ip):
+def insert_user_profile(pseudo, nom, prenom, adresse_mail, identifiant, mot_de_passe, adresse_ip):
     connection = mysql.connector.connect(**db_config)
     cursor = connection.cursor()
 
     try:
         # Insérer le profil utilisateur dans la base de données
-        cursor.execute("INSERT INTO utilisateurs (pseudo, nom, prenom, identifiant, mot_de_passe, adresse_ip) VALUES (%s, %s, %s, %s, %s, %s)",
-               (pseudo, nom, prenom, identifiant, mot_de_passe, adresse_ip))
+        cursor.execute("INSERT INTO utilisateurs (pseudo, nom, prenom, adresse_mail, identifiant, mot_de_passe, adresse_ip) VALUES (%s, %s, %s, %s, %s, %s)",
+               (pseudo, nom, prenom, adresse_mail, identifiant, mot_de_passe, adresse_ip))
         connection.commit()
         print(f"Inserted user profile for {pseudo} successfully.")
     except Exception as e:
@@ -184,6 +189,17 @@ def create_user_profile(conn):
             prenom = conn.recv(1024).decode()
 
             while True:
+                conn.send("Adresse e-mail : ".encode())
+                adresse_mail = conn.recv(1024).decode()
+
+                # Vérifier l'adresse e-mail
+                if not is_valid_email(adresse_mail):
+                    conn.send("Adresse e-mail invalide. Veuillez réessayer.\n".encode())
+                    continue
+
+                break
+
+            while True:
                 conn.send("Entrez votre identifiant : ".encode())
                 identifiant = conn.recv(1024).decode()
 
@@ -194,8 +210,14 @@ def create_user_profile(conn):
                 if user_exists(identifiant):
                     conn.send("Identifiant déjà utilisé. Réessayez avec un autre identifiant.\n".encode())
                 else:
-                    insert_user_profile(pseudo, nom, prenom, identifiant, mot_de_passe, get_client_ip(conn))
-                    conn.send("Profil créé avec succès !\n".encode())
+                    insert_user_profile(pseudo, nom, prenom, adresse_mail, identifiant, mot_de_passe, get_client_ip(conn))
+                    conn.send(f"Profil créé avec succès !\n"
+                      f"Vous avez entré les informations suivantes :\n"
+                      f"Pseudo: {pseudo}\n"
+                      f"Nom: {nom}\n"
+                      f"Prénom: {prenom}\n"
+                      f"Adresse e-mail: {adresse_mail}\n"
+                      f"Identifiant: {identifiant}\n".encode())
                     conn.send("Bienvenue !\n".encode())
                     break
             break  
