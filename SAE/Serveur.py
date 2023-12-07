@@ -84,7 +84,7 @@ def insert_user_profile(pseudo, nom, prenom, adresse_mail, identifiant, mot_de_p
 
     try:
         # Insérer le profil utilisateur dans la base de données
-        cursor.execute("INSERT INTO utilisateurs (pseudo, nom, prenom, adresse_mail, identifiant, mot_de_passe, adresse_ip) VALUES (%s, %s, %s, %s, %s, %s)",
+        cursor.execute("INSERT INTO utilisateurs (pseudo, nom, prenom, adresse_mail, identifiant, mot_de_passe, adresse_ip) VALUES (%s, %s, %s, %s, %s, %s, %s)",
                (pseudo, nom, prenom, adresse_mail, identifiant, mot_de_passe, adresse_ip))
         connection.commit()
         print(f"Inserted user profile for {pseudo} successfully.")
