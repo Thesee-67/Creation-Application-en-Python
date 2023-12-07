@@ -165,7 +165,7 @@ def create_user_profile(conn):
                     login_attempt += 1
 
                 if login_attempt >= 3:
-                    conn.send("Trop de tentatives échouées. Fermeture de la connexion.\n".encode())
+                    conn.send("Trop de tentatives échouées. Fermeture de la connexion. Veuillez fermer l'application.\n".encode())
                     conn.close()
                     return
 
@@ -211,9 +211,15 @@ def handle_client(conn, address, flag_lock, flag, clients):
 
         pseudo = conn.recv(1024).decode()
         user_exists_flag = user_exists(pseudo)
-        conn.send(str(user_exists_flag).encode())
 
-        if not user_exists_flag:
+        # Envoyer "Bienvenue" ici, avant de vérifier si le profil existe
+        conn.send("Bienvenue !\n".encode())
+
+        if user_exists_flag:
+            # Si le profil existe, envoyer un message et continuer normalement
+            conn.send("Bienvenue ! Vous avez déjà un profil.\n".encode())
+        else:
+            # Si le profil n'existe pas, créer un profil
             create_user_profile(conn)
 
         topic_choice_valid = False
