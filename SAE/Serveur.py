@@ -129,14 +129,40 @@ def authenticate_shell():
 
     return True
 
+def get_pseudo_from_client(conn):
+    connection = mysql.connector.connect(**db_config)
+
+    try:
+        cursor = connection.cursor()
+        cursor.execute("SELECT pseudo FROM utilisateurs WHERE adresse_ip = %s", (conn.getpeername()[0],))
+        result = cursor.fetchone()
+
+        if result:
+            pseudo = result[0]
+        else:
+            cursor.execute("SELECT pseudo FROM utilisateurs WHERE adresse_ip IS NULL")
+            result = cursor.fetchone()
+            pseudo = result[0] if result else "Pseudo_inconnu"  # Utilisez le pseudo par défaut si rien n'est trouvé
+    finally:
+        connection.close()
+
+    return pseudo
+
+
 def broadcast_message(message, clients, topic):
     for client_conn, client_topic in clients:
         if client_topic == topic:
             try:
-                client_conn.send(message.encode())
+                # Remplacez l'adresse IP par le pseudo
+                pseudo = get_pseudo_from_client(client_conn)
+                message_with_pseudo = f"[Topic {topic}] Client {pseudo}: {message}"
+                
+                client_conn.send(message_with_pseudo.encode())
             except (socket.error, socket.timeout):
                 # Gérer les erreurs de socket
                 continue
+
+
 
 def create_user_profile(conn):
     conn.send("Bienvenue !\n".encode())
@@ -218,13 +244,13 @@ def create_user_profile(conn):
                       f"Prénom: {prenom}\n"
                       f"Adresse e-mail: {adresse_mail}\n"
                       f"Identifiant: {identifiant}\n".encode())
-                    conn.send("Bienvenue !\n".encode())
+                    conn.send(f"Bienvenue {pseudo}!\n".encode())
                     break
             break  
         else:
             conn.send("Réponse non valide. Veuillez répondre par 'Oui' ou 'Non'.\n".encode())
 
-def handle_client(conn, address, flag_lock, flag, clients):
+def handle_client(conn, address, flag_lock, flag, clients,):
     flag2 = True
     current_topic = ""
 
