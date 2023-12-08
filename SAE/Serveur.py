@@ -129,42 +129,57 @@ def authenticate_shell():
 
     return True
 
-def get_pseudo_from_client(conn):
+def get_pseudo_from_client(conn, identifiant):
     connection = mysql.connector.connect(**db_config)
 
     try:
         cursor = connection.cursor()
-        cursor.execute("SELECT pseudo FROM utilisateurs WHERE adresse_ip = %s", (conn.getpeername()[0],))
+        cursor.execute("SELECT pseudo FROM utilisateurs WHERE identifiant = %s", (identifiant,))
         result = cursor.fetchone()
 
         if result:
             pseudo = result[0]
         else:
-            cursor.execute("SELECT pseudo FROM utilisateurs WHERE adresse_ip IS NULL")
-            result = cursor.fetchone()
-            pseudo = result[0] if result else "Pseudo_inconnu"  # Utilisez le pseudo par défaut si rien n'est trouvé
+            pseudo = "Pseudo_inconnu"  # Utilisez le pseudo par défaut si rien n'est trouvé
     finally:
         connection.close()
 
     return pseudo
 
+def save_message_to_db(identifiant, message_texte, current_topic, address):
+    connection = mysql.connector.connect(**db_config)
+    cursor = connection.cursor()
+
+    try:
+        # Insérer le message dans la base de données
+        cursor.execute("INSERT INTO messages (utilisateur_identifiant, message_texte, topic, adresse_ip) VALUES (%s, %s, %s, %s)",
+                       (identifiant, message_texte, current_topic, address))
+        connection.commit()
+    except Exception as e:
+        print(f"Error saving message to database: {e}")
+        connection.rollback()
+    finally:
+        cursor.close()
+        connection.close()
 
 def broadcast_message(message, clients, topic):
     for client_conn, client_topic in clients:
         if client_topic == topic:
             try:
                 # Remplacez l'adresse IP par le pseudo
-                pseudo = get_pseudo_from_client(client_conn)
-                message_with_pseudo = f"[Topic {topic}] Client {pseudo}: {message}"
-                
+                pseudo = get_pseudo_from_client(client_conn, identifiant)
+
+                # Construire le message avec le pseudonyme mais sans la partie spécifique
+                message_with_pseudo = f"[Topic {topic}] {pseudo}:{message}"
+
+                # Envoyer le message au client
                 client_conn.send(message_with_pseudo.encode())
             except (socket.error, socket.timeout):
                 # Gérer les erreurs de socket
                 continue
 
-
-
 def create_user_profile(conn):
+    global identifiant
     conn.send("Bienvenue !\n".encode())
 
     while True:
@@ -231,6 +246,7 @@ def create_user_profile(conn):
 
                 conn.send("Entrez votre mot de passe : ".encode())
                 mot_de_passe = conn.recv(1024).decode()
+
 
                 # Ajouter la vérification des identifiants dans la base de données
                 if user_exists(identifiant):
@@ -304,10 +320,13 @@ def handle_client(conn, address, flag_lock, flag, clients,):
                 with flag_lock:
                     clients.remove((conn, current_topic))
                 break
+            else:
+                # Enregistrez le message dans la base de données
+                save_message_to_db(identifiant, message, current_topic, address[0])
 
             # Exclure les messages de changement de topic du chat
             if not message.lower().startswith("change:"):
-                broadcast_message(f"[Topic {current_topic}] Client {address}: {message}", clients, current_topic)
+                broadcast_message(f"{message}", clients, current_topic)
 
     except ConnectionResetError:
         print(f"La connexion avec {address} a été réinitialisée par le client.")

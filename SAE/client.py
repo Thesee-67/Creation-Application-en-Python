@@ -230,7 +230,7 @@ class ClientGUI(QMainWindow):
         self.connect_to_server()
 
     def connect_to_server(self):
-        host = "127.0.0.1"
+        host = "127.0.0.3"
         port = 10000
 
         try:
