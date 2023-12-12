@@ -65,12 +65,12 @@ def save_server_credentials(login, password):
     cursor.close()
     connection.close()
 
-def user_exists(pseudo):
+def user_exists(identifiant):
     connection = mysql.connector.connect(**db_config)
     cursor = connection.cursor()
 
     # Vérifier si l'utilisateur existe dans la base de données
-    cursor.execute("SELECT id FROM utilisateurs WHERE pseudo = %s", (pseudo,))
+    cursor.execute("SELECT id FROM utilisateurs WHERE identifiant = %s", (identifiant,))
     result = cursor.fetchone()
 
     cursor.close()
@@ -78,18 +78,18 @@ def user_exists(pseudo):
 
     return result is not None
 
-def insert_user_profile(pseudo, nom, prenom, adresse_mail, identifiant, mot_de_passe, adresse_ip):
+def insert_user_profile(nom, prenom, adresse_mail, identifiant, mot_de_passe, adresse_ip):
     connection = mysql.connector.connect(**db_config)
     cursor = connection.cursor()
 
     try:
         # Insérer le profil utilisateur dans la base de données
-        cursor.execute("INSERT INTO utilisateurs (pseudo, nom, prenom, adresse_mail, identifiant, mot_de_passe, adresse_ip) VALUES (%s, %s, %s, %s, %s, %s, %s)",
-               (pseudo, nom, prenom, adresse_mail, identifiant, mot_de_passe, adresse_ip))
+        cursor.execute("INSERT INTO utilisateurs (nom, prenom, adresse_mail, identifiant, mot_de_passe, adresse_ip) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+               (nom, prenom, adresse_mail, identifiant, mot_de_passe, adresse_ip))
         connection.commit()
-        print(f"Inserted user profile for {pseudo} successfully.")
+        print(f"Inserted user profile for {identifiant} successfully.")
     except Exception as e:
-        print(f"Error inserting user profile for {pseudo}: {e}")
+        print(f"Error inserting user profile for {identifiant}: {e}")
         connection.rollback()
 
     cursor.close()
@@ -129,23 +129,6 @@ def authenticate_shell():
 
     return True
 
-def get_pseudo_from_client(conn, identifiant):
-    connection = mysql.connector.connect(**db_config)
-
-    try:
-        cursor = connection.cursor()
-        cursor.execute("SELECT pseudo FROM utilisateurs WHERE identifiant = %s", (identifiant,))
-        result = cursor.fetchone()
-
-        if result:
-            pseudo = result[0]
-        else:
-            pseudo = "Pseudo_inconnu"  # Utilisez le pseudo par défaut si rien n'est trouvé
-    finally:
-        connection.close()
-
-    return pseudo
-
 def save_message_to_db(identifiant, message_texte, current_topic, address):
     connection = mysql.connector.connect(**db_config)
     cursor = connection.cursor()
@@ -162,15 +145,17 @@ def save_message_to_db(identifiant, message_texte, current_topic, address):
         cursor.close()
         connection.close()
 
-def broadcast_message(message, clients, topic):
+def broadcast_message(message, clients, topic, identifiant):
     for client_conn, client_topic in clients:
         if client_topic == topic:
             try:
                 # Remplacez l'adresse IP par le pseudo
-                pseudo = get_pseudo_from_client(client_conn, identifiant)
+
+                # Utiliser l'identifiant ou "Inconnu" s'il est manquant
+                identifiant_affichage = identifiant if identifiant else "Inconnu"
 
                 # Construire le message avec le pseudonyme mais sans la partie spécifique
-                message_with_pseudo = f"[Topic {topic}] {pseudo}:{message}"
+                message_with_pseudo = f"[Topic {topic} {identifiant_affichage}]: {message}"
 
                 # Envoyer le message au client
                 client_conn.send(message_with_pseudo.encode())
@@ -178,8 +163,8 @@ def broadcast_message(message, clients, topic):
                 # Gérer les erreurs de socket
                 continue
 
+
 def create_user_profile(conn):
-    global identifiant
     conn.send("Bienvenue !\n".encode())
 
     while True:
@@ -192,6 +177,8 @@ def create_user_profile(conn):
             while login_attempt < 3:
                 conn.send("Entrez votre identifiant : ".encode())
                 identifiant = conn.recv(1024).decode()
+
+                dico[f"{conn}"] = identifiant
 
                 conn.send("Entrez votre mot de passe : ".encode())
                 mot_de_passe = conn.recv(1024).decode()
@@ -220,9 +207,6 @@ def create_user_profile(conn):
         elif response == "non":
             conn.send("Veuillez compléter votre profil.\n".encode())
 
-            conn.send("Entrez votre pseudo : ".encode())
-            pseudo = conn.recv(1024).decode()
-
             conn.send("Entrez votre nom : ".encode())
             nom = conn.recv(1024).decode()
 
@@ -243,6 +227,7 @@ def create_user_profile(conn):
             while True:
                 conn.send("Entrez votre identifiant : ".encode())
                 identifiant = conn.recv(1024).decode()
+                dico[f"{conn}"] = identifiant
 
                 conn.send("Entrez votre mot de passe : ".encode())
                 mot_de_passe = conn.recv(1024).decode()
@@ -252,15 +237,14 @@ def create_user_profile(conn):
                 if user_exists(identifiant):
                     conn.send("Identifiant déjà utilisé. Réessayez avec un autre identifiant.\n".encode())
                 else:
-                    insert_user_profile(pseudo, nom, prenom, adresse_mail, identifiant, mot_de_passe, get_client_ip(conn))
+                    insert_user_profile(nom, prenom, adresse_mail, identifiant, mot_de_passe, get_client_ip(conn))
                     conn.send(f"Profil créé avec succès !\n"
                       f"Vous avez entré les informations suivantes :\n"
-                      f"Pseudo: {pseudo}\n"
                       f"Nom: {nom}\n"
                       f"Prénom: {prenom}\n"
                       f"Adresse e-mail: {adresse_mail}\n"
                       f"Identifiant: {identifiant}\n".encode())
-                    conn.send(f"Bienvenue {pseudo}!\n".encode())
+                    conn.send(f"Bienvenue {identifiant}!\n".encode())
                     break
             break  
         else:
@@ -269,22 +253,10 @@ def create_user_profile(conn):
 def handle_client(conn, address, flag_lock, flag, clients,):
     flag2 = True
     current_topic = ""
-
     try:
         print(f"Connexion établie avec {address}.")
 
-        pseudo = conn.recv(1024).decode()
-        user_exists_flag = user_exists(pseudo)
-
-        # Envoyer "Bienvenue" ici, avant de vérifier si le profil existe
-        conn.send("Bienvenue !\n".encode())
-
-        if user_exists_flag:
-            # Si le profil existe, envoyer un message et continuer normalement
-            conn.send("Bienvenue ! Vous avez déjà un profil.\n".encode())
-        else:
-            # Si le profil n'existe pas, créer un profil
-            create_user_profile(conn)
+        create_user_profile(conn)
 
         topic_choice_valid = False
 
@@ -322,11 +294,11 @@ def handle_client(conn, address, flag_lock, flag, clients,):
                 break
             else:
                 # Enregistrez le message dans la base de données
+                identifiant = dico[str(conn)]
                 save_message_to_db(identifiant, message, current_topic, address[0])
-
             # Exclure les messages de changement de topic du chat
             if not message.lower().startswith("change:"):
-                broadcast_message(f"{message}", clients, current_topic)
+                broadcast_message(f"{message}", clients, current_topic, identifiant)
 
     except ConnectionResetError:
         print(f"La connexion avec {address} a été réinitialisée par le client.")
@@ -360,6 +332,7 @@ if __name__ == '__main__':
     flag_lock = threading.Lock()
     client_threads = []  # Liste pour stocker les threads clients
     clients = []
+    dico = {}
 
     server_socket = socket.socket()
     server_socket.bind(('0.0.0.0', port))
