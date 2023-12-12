@@ -155,7 +155,7 @@ def broadcast_message(message, clients, topic, identifiant):
                 identifiant_affichage = identifiant if identifiant else "Inconnu"
 
                 # Construire le message avec le pseudonyme mais sans la partie spécifique
-                message_with_pseudo = f"[Topic {topic} {identifiant_affichage}]: {message}"
+                message_with_pseudo = f"[Topic {topic}] Pseudo:{identifiant_affichage}: {message}"
 
                 # Envoyer le message au client
                 client_conn.send(message_with_pseudo.encode())
