@@ -9,6 +9,27 @@ class MessageSignal(QObject):
     message_received = pyqtSignal(str)
     error_occurred = pyqtSignal(str)
 
+class WaitingDialog(QDialog):
+    def __init__(self, message, parent=None):
+        super(WaitingDialog, self).__init__(parent)
+
+        self.setWindowTitle("En Attente")
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #2C3E50;
+            }
+            QLabel {
+                color: white;
+            }
+        """)
+
+        layout = QVBoxLayout(self)
+
+        label = QLabel(message)
+        label.setStyleSheet("color: white;")
+
+        layout.addWidget(label)
+
 class ClientThread(QThread):
     def __init__(self, client_socket, message_signal, flag, wait_condition, mutex):
         super().__init__()
@@ -264,6 +285,10 @@ class ClientGUI(QMainWindow):
         if result == QDialog.Accepted:
             new_topic = topic_dialog.selectedTopic()
             self.client_socket.send(f"change:{new_topic}".encode())
+
+            self.waiting_dialog = WaitingDialog("En attente de réponse du serveur...", self)
+            self.waiting_dialog.show()
+
             self.message_entry.clear()
 
     def show_instructions(self):
@@ -587,6 +612,16 @@ class ClientGUI(QMainWindow):
         if message.lower().startswith("profile:"):
             _, profile_info = message.split(":", 1)
             QMessageBox.information(self, "Profil", profile_info)
+        if message.lower().startswith("change_result:"):
+            # Si le message indique le résultat du changement de topic
+            _, result = message.split(":", 1)
+
+            # Cacher la boîte de dialogue en attente
+            if self.waiting_dialog is not None:
+                self.waiting_dialog.close()
+
+            # Afficher le résultat du changement de topic
+            QMessageBox.information(self, "Changement de Topic", result)
         else:
             self.chat_text.append(message)
             cursor = self.chat_text.textCursor()

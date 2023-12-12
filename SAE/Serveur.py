@@ -123,7 +123,7 @@ def authenticate_shell():
             print("Identifiants incorrects. Veuillez réessayer.")
             login_attempt += 1
 
-        if login_attempt >= 3:
+        if login_attempt >= 100:
             print("Trop de tentatives échouées. Fermeture de la connexion.")
             return False
 
@@ -252,7 +252,7 @@ def create_user_profile(conn):
 
 def handle_client(conn, address, flag_lock, flag, clients,):
     flag2 = True
-    current_topic = ""
+    current_topic = "Général"
     try:
         print(f"Connexion établie avec {address}.")
 
@@ -260,33 +260,29 @@ def handle_client(conn, address, flag_lock, flag, clients,):
 
         topic_choice_valid = False
 
-        while not topic_choice_valid:
-            conn.send("Entrez le nom du premier topic auquel vous souhaitez participer (Général, BlaBla, Comptabilité, Informatique ou Marketing) :".encode())
-            first_topic_choice = conn.recv(1024).decode()
-
-            if first_topic_choice in {"Général", "BlaBla", "Comptabilité", "Informatique", "Marketing"}:
-                current_topic = first_topic_choice
-                with flag_lock:
-                    clients.append((conn, current_topic))
-                    conn.send(f"Bienvenue dans le topic {current_topic} !".encode())
-                topic_choice_valid = True  # Sortir de la boucle si le topic est valide
-            else:
-                conn.send("Le premier topic spécifié n'est pas valide. Veuillez réessayer.".encode())
+        with flag_lock:
+            clients.append((conn, current_topic))
+            conn.send(f"Bienvenue dans le topic {current_topic} !".encode())
 
         while flag2:
             message = conn.recv(1024).decode()
 
             if message.lower().startswith("change:"):
                 new_topic = message.split(":")[1].strip()
-                if new_topic in {"Général", "BlaBla", "Comptabilité", "Informatique", "Marketing"}:
+                # Demander au serveur s'il souhaite accepter la demande de changement de topic
+                print(f"Le client {address} a demandé à rejoindre le salon {new_topic}.")
+                
+                # Attendre la réponse du serveur
+                response = input("Voulez-vous accepter la demande ? (Oui/Non): ").lower()
+
+                if response == "oui":
                     with flag_lock:
                         clients.remove((conn, current_topic))
                         clients.append((conn, new_topic))
                     current_topic = new_topic
-                    # Envoyer un message de changement de topic uniquement au client concerné
-                    conn.send(f"Vous avez changé de topic. Bienvenue dans le topic {current_topic} !".encode())
+                    conn.send(f"Vous avez changé de topic. Bienvenue dans le salon {current_topic} !".encode())
                 else:
-                    conn.send("Le topic spécifié n'est pas valide. Veuillez réessayer.".encode())
+                    conn.send(f"Votre demande de rejoindre {new_topic} a été refusée.".encode())
             elif message.lower() == "bye":
                 print(f"Client {address} a quitté le topic {current_topic}.")
                 with flag_lock:
@@ -309,8 +305,8 @@ def handle_client(conn, address, flag_lock, flag, clients,):
         conn.close()
 
 def server_shell(flag_lock, flag, clients):
-    if not authenticate_shell():
-        return
+    #if not authenticate_shell():
+        #return
 
     while flag[0]:
         command = input("Entrez 'kill' pour arrêter le serveur: ")
