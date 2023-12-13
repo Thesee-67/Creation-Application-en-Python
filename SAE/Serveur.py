@@ -250,67 +250,73 @@ def create_user_profile(conn):
         else:
             conn.send("Réponse non valide. Veuillez répondre par 'Oui' ou 'Non'.\n".encode())
 
-def handle_client(conn, address, flag_lock, flag, clients,):
+def handle_client(conn, address, flag_lock, flag, clients):
     flag2 = True
-    current_topic = "Général"
+    topic_actuel = "Général"
+    
     try:
         print(f"Connexion établie avec {address}.")
 
         create_user_profile(conn)
 
-        topic_choice_valid = False
+        choix_topic_valide = False
 
         with flag_lock:
-            clients.append((conn, current_topic))
-            conn.send(f"Bienvenue dans le topic {current_topic} !".encode())
+            clients.append((conn, topic_actuel))
+            conn.send(f"Bienvenue dans le salon {topic_actuel} !".encode())
 
         while flag2:
             message = conn.recv(1024).decode()
 
             if message.lower().startswith("change:"):
-                new_topic = message.split(":")[1].strip()
-                # Demander au serveur s'il souhaite accepter la demande de changement de topic
-                print(f"Le client {address} a demandé à rejoindre le salon {new_topic}.")
+                identifiant = dico[str(conn)]
+                nouveau_topic = message.split(":")[1].strip()
+                # Demander au serveur s'il souhaite accepter la demande de changement de sujet
+                print(f"Le client {address} {identifiant} a demandé à rejoindre le salon {nouveau_topic}.")
                 
-                # Attendre la réponse du serveur
-                response = input("Voulez-vous accepter la demande ? (Oui/Non): ").lower()
-
-                if response == "oui":
-                    with flag_lock:
-                        clients.remove((conn, current_topic))
-                        clients.append((conn, new_topic))
-                    current_topic = new_topic
-                    conn.send(f"Vous avez changé de topic. Bienvenue dans le salon {current_topic} !".encode())
+                # Vérifier si une demande en attente existe déjà pour cet utilisateur
+                if identifiant in demandes_en_attente:
+                    conn.send("Vous avez déjà une demande en attente. Veuillez patienter.".encode())
                 else:
-                    conn.send(f"Votre demande de rejoindre {new_topic} a été refusée.".encode())
+                    # Ajouter la demande en attente
+                    demandes_en_attente[identifiant] = nouveau_topic
+                    conn.send(f"Votre demande de rejoindre {nouveau_topic} est en attente d'approbation.".encode())
+
+                    # Afficher les demandes en attente via le shell du serveur
+                    print("Demandes en attente :")
+                    for user, topic in demandes_en_attente.items():
+                        print(f"- {user} : {topic}")
+
             elif message.lower() == "bye":
-                print(f"Client {address} a quitté le topic {current_topic}.")
+                print(f"Client {address} a quitté le salon {topic_actuel}.")
                 with flag_lock:
-                    clients.remove((conn, current_topic))
+                    clients.remove((conn, topic_actuel))
                 break
             else:
                 # Enregistrez le message dans la base de données
                 identifiant = dico[str(conn)]
-                save_message_to_db(identifiant, message, current_topic, address[0])
-            # Exclure les messages de changement de topic du chat
-            if not message.lower().startswith("change:"):
-                broadcast_message(f"{message}", clients, current_topic, identifiant)
+                save_message_to_db(identifiant, message, topic_actuel, address[0])
+                # Exclure les messages de changement de sujet du chat
+                if not message.lower().startswith("change:"):
+                    broadcast_message(f"{message}", clients, topic_actuel, identifiant)
 
     except ConnectionResetError:
         print(f"La connexion avec {address} a été réinitialisée par le client.")
     except Exception as e:
-        print(f"Une exception s'est produite avec {address}: {e}")
+        print(f"Une exception s'est produite avec {address} : {e}")
     finally:
         # Fermer la connexion du client
         conn.close()
 
-def server_shell(flag_lock, flag, clients):
-    #if not authenticate_shell():
-        #return
+def server_shell(flag_lock, flag, clients,):
+    if not authenticate_shell():
+        return
+
+    topic_actuel = "Général"  
 
     while flag[0]:
-        command = input("Entrez 'kill' pour arrêter le serveur: ")
-        if command.lower() == "kill":
+        commande = input("Entrez 'kill' pour arrêter le serveur : ")
+        if commande.lower() == "kill":
             with flag_lock:
                 flag[0] = False
             for client_conn, _ in clients:
@@ -321,6 +327,35 @@ def server_shell(flag_lock, flag, clients):
                     continue
             print("Arrêt du serveur et déconnexion des clients.")
             break
+        elif commande.lower() == "showdemande":
+            print("Demandes en attente :")
+            for user, topic in demandes_en_attente.items():
+                print(f"- {user} : {topic}")
+        elif commande.lower().startswith("accept@"):
+            parts = commande.split("@")
+            if len(parts) == 2:
+                user_and_text = parts[1].split(":")
+                user = user_and_text[0].strip()  # Supprime les espaces autour du nom d'utilisateur
+                if user in demandes_en_attente:
+                    new_topic = demandes_en_attente[user]
+                    with flag_lock:
+                        clients.remove((conn, topic_actuel))
+                        clients.append((conn, new_topic))
+                    topic_actuel = new_topic
+                    for client_conn, _ in clients:
+                        if client_conn == conn:
+                            client_conn.send(f"Vous avez changé de salon. Bienvenue dans le salon {topic_actuel} !".encode())
+                            break
+                    print(f"La demande de {user} pour rejoindre {new_topic} a été acceptée.")
+                    # Supprimer la demande en attente après l'acceptation
+                    del demandes_en_attente[user]
+                else:
+                    print(f"Aucune demande en attente pour {user}.")
+            else:
+                print("Commande incorrecte. Utilisez 'accept@identifiant:BlaBla'.")
+        else:
+            print("Commande non reconnue. Utilisez 'kill', 'showdemande' ou 'accept@identifiant'.")
+
 
 if __name__ == '__main__':
     port = 10000
@@ -329,6 +364,8 @@ if __name__ == '__main__':
     client_threads = []  # Liste pour stocker les threads clients
     clients = []
     dico = {}
+    demandes_en_attente = {}
+
 
     server_socket = socket.socket()
     server_socket.bind(('0.0.0.0', port))
@@ -336,7 +373,7 @@ if __name__ == '__main__':
     print("Serveur en attente de connexions...")
 
     # Créer un thread pour gérer le shell du serveur
-    shell_thread = threading.Thread(target=server_shell, args=(flag_lock, flag, clients))
+    shell_thread = threading.Thread(target=server_shell, args=(flag_lock, flag, clients,))
     shell_thread.start()
 
     try:
