@@ -270,10 +270,7 @@ def handle_client(conn, address, flag_lock, flag, clients):
 
             if message.lower().startswith("change:"):
                 identifiant = dico[str(conn)]
-                nouveau_topic = message.split(":")[1].strip()
-                # Demander au serveur s'il souhaite accepter la demande de changement de sujet
-                print(f"Le client {address} {identifiant} a demandé à rejoindre le salon {nouveau_topic}.")
-                
+                nouveau_topic = message.split(":")[1].strip()                
                 # Vérifier si une demande en attente existe déjà pour cet utilisateur
                 if identifiant in demandes_en_attente:
                     conn.send("Vous avez déjà une demande en attente. Veuillez patienter.".encode())
@@ -282,10 +279,6 @@ def handle_client(conn, address, flag_lock, flag, clients):
                     demandes_en_attente[identifiant] = nouveau_topic
                     conn.send(f"Votre demande de rejoindre {nouveau_topic} est en attente d'approbation.".encode())
 
-                    # Afficher les demandes en attente via le shell du serveur
-                    print("Demandes en attente :")
-                    for user, topic in demandes_en_attente.items():
-                        print(f"- {user} : {topic}")
 
             elif message.lower() == "bye":
                 print(f"Client {address} a quitté le salon {topic_actuel}.")
