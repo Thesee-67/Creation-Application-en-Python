@@ -278,6 +278,7 @@ def create_user_profile(conn):
                       f"Prénom: {prenom}\n"
                       f"Adresse e-mail: {adresse_mail}\n"
                       f"Identifiant: {identifiant}\n".encode())
+                    save_authorization(identifiant, "Général")
                     conn.send(f"Bienvenue {identifiant}!\n".encode())
                     break
             break  
@@ -307,14 +308,22 @@ def handle_client(conn, address, flag_lock, flag, clients):
 
             if message.lower().startswith("change:"):
                 identifiant = dico[conn]
-                nouveau_topic = message.split(":")[1].strip()                
-                # Vérifier si une demande en attente existe déjà pour cet utilisateur
-                if identifiant in demandes_en_attente:
-                    conn.send("Vous avez déjà une demande en attente. Veuillez patienter.".encode())
+                nouveau_topic = message.split(":")[1].strip()
+                if is_user_authorized(identifiant, nouveau_topic):
+                    conn.send(f"Vous avez changé de salon. Bienvenue dans le salon {nouveau_topic} !".encode())             
+                    # Vérifier si une demande en attente existe déjà pour cet utilisateur
+                    topic_actuel = dico3[identifiant]
+                    with flag_lock:
+                        clients.remove((conn, topic_actuel))
+                        clients.append((conn, nouveau_topic))
+                    dico3[identifiant] = nouveau_topic
                 else:
+                    if identifiant in demandes_en_attente:
+                        conn.send("Vous avez déjà une demande en attente. Veuillez patienter.".encode())
+                    else:
                     # Ajouter la demande en attente
-                    demandes_en_attente[identifiant] = nouveau_topic
-                    conn.send(f"Votre demande de rejoindre {nouveau_topic} est en attente d'approbation.".encode())
+                        demandes_en_attente[identifiant] = nouveau_topic
+                        conn.send(f"Votre demande de rejoindre {nouveau_topic} est en attente d'approbation.".encode())
 
 
             elif message.lower() == "bye":
@@ -374,6 +383,7 @@ def server_shell(flag_lock, flag, clients,):
                         clients.remove((conn, topic2))
                         clients.append((conn, new_topic))
                     dico3[identifiant] = new_topic
+                    save_authorization(identifiant, new_topic)
                     for client_conn, _ in clients:
                         if client_conn == conn:
                             client_conn.send(f"Vous avez changé de salon. Bienvenue dans le salon {new_topic} !".encode())
