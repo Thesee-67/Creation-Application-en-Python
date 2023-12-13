@@ -178,7 +178,7 @@ def create_user_profile(conn):
                 conn.send("Entrez votre identifiant : ".encode())
                 identifiant = conn.recv(1024).decode()
 
-                dico[f"{conn}"] = identifiant
+                dico[conn] = identifiant
 
                 conn.send("Entrez votre mot de passe : ".encode())
                 mot_de_passe = conn.recv(1024).decode()
@@ -227,7 +227,7 @@ def create_user_profile(conn):
             while True:
                 conn.send("Entrez votre identifiant : ".encode())
                 identifiant = conn.recv(1024).decode()
-                dico[f"{conn}"] = identifiant
+                dico[conn] = identifiant
 
                 conn.send("Entrez votre mot de passe : ".encode())
                 mot_de_passe = conn.recv(1024).decode()
@@ -269,7 +269,7 @@ def handle_client(conn, address, flag_lock, flag, clients):
             message = conn.recv(1024).decode()
 
             if message.lower().startswith("change:"):
-                identifiant = dico[str(conn)]
+                identifiant = dico[conn]
                 nouveau_topic = message.split(":")[1].strip()                
                 # Vérifier si une demande en attente existe déjà pour cet utilisateur
                 if identifiant in demandes_en_attente:
@@ -287,7 +287,7 @@ def handle_client(conn, address, flag_lock, flag, clients):
                 break
             else:
                 # Enregistrez le message dans la base de données
-                identifiant = dico[str(conn)]
+                identifiant = dico[conn]
                 save_message_to_db(identifiant, message, topic_actuel, address[0])
                 # Exclure les messages de changement de sujet du chat
                 if not message.lower().startswith("change:"):
@@ -322,28 +322,32 @@ def server_shell(flag_lock, flag, clients,):
             break
         elif commande.lower() == "showdemande":
             print("Demandes en attente :")
-            for user, topic in demandes_en_attente.items():
-                print(f"- {user} : {topic}")
+            for identifiant, topic in demandes_en_attente.items():
+                print(f"- {identifiant} : {topic}")
         elif commande.lower().startswith("accept@"):
             parts = commande.split("@")
             if len(parts) == 2:
                 user_and_text = parts[1].split(":")
-                user = user_and_text[0].strip()  # Supprime les espaces autour du nom d'utilisateur
-                if user in demandes_en_attente:
-                    new_topic = demandes_en_attente[user]
-                    with flag_lock:
-                        clients.remove((conn, topic_actuel))
-                        clients.append((conn, new_topic))
+                identifiant = user_and_text[0].strip()  # Supprime les espaces autour du nom d'utilisateur
+                if identifiant in demandes_en_attente:
+                    new_topic = demandes_en_attente[identifiant]
+                    for k, v in dico.items():
+                        with flag_lock:
+                            tu = (k, topic_actuel)
+                            if tu in clients:
+                                clients.remove(tu)
+                                tu1 = (k, new_topic)
+                                clients.append(tu1)
                     topic_actuel = new_topic
                     for client_conn, _ in clients:
-                        if client_conn == conn:
+                        if client_conn == k:
                             client_conn.send(f"Vous avez changé de salon. Bienvenue dans le salon {topic_actuel} !".encode())
                             break
-                    print(f"La demande de {user} pour rejoindre {new_topic} a été acceptée.")
+                    print(f"La demande de {identifiant} pour rejoindre {new_topic} a été acceptée.")
                     # Supprimer la demande en attente après l'acceptation
-                    del demandes_en_attente[user]
+                    del demandes_en_attente[identifiant]
                 else:
-                    print(f"Aucune demande en attente pour {user}.")
+                    print(f"Aucune demande en attente pour {identifiant}.")
             else:
                 print("Commande incorrecte. Utilisez 'accept@identifiant:BlaBla'.")
         else:
@@ -380,11 +384,6 @@ if __name__ == '__main__':
                 # Créer un thread pour gérer la connexion client
                 client_thread = threading.Thread(target=handle_client, args=(conn, address, flag_lock, flag, clients))
                 client_thread.start()
-
-                # Ajouter le client à la liste des clients
-                with flag_lock:
-                    clients.append((conn, ""))  # Ajouter un espace réservé pour le topic, à remplacer lors de la sélection du topic
-                client_threads.append(client_thread)
 
             except socket.timeout:
                 # Cela permet au serveur de vérifier périodiquement si la commande "stop" a été donnée
