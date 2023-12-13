@@ -9,27 +9,6 @@ class MessageSignal(QObject):
     message_received = pyqtSignal(str)
     error_occurred = pyqtSignal(str)
 
-class WaitingDialog(QDialog):
-    def __init__(self, message, parent=None):
-        super(WaitingDialog, self).__init__(parent)
-
-        self.setWindowTitle("En Attente")
-        self.setStyleSheet("""
-            QDialog {
-                background-color: #2C3E50;
-            }
-            QLabel {
-                color: white;
-            }
-        """)
-
-        layout = QVBoxLayout(self)
-
-        label = QLabel(message)
-        label.setStyleSheet("color: white;")
-
-        layout.addWidget(label)
-
 class ClientThread(QThread):
     def __init__(self, client_socket, message_signal, flag, wait_condition, mutex):
         super().__init__()
@@ -286,20 +265,6 @@ class ClientGUI(QMainWindow):
             new_topic = topic_dialog.selectedTopic()
             self.client_socket.send(f"change:{new_topic}".encode())
             self.message_entry.clear()
-
-    def show_change_topic_dialog(self):
-        topic_dialog = TopicDialog(["Général", "BlaBla", "Comptabilité", "Informatique", "Marketing"], self)
-        result = topic_dialog.exec_()
-
-        if result == QDialog.Accepted:
-            new_topic = topic_dialog.selectedTopic()
-            self.client_socket.send(f"change:{new_topic}".encode())
-            self.message_entry.clear()
-
-            # Afficher la boîte de dialogue d'attente
-            self.waiting_dialog = WaitingDialog("En attente de réponse du serveur...", self)
-            self.waiting_dialog.show()
-
 
     def show_instructions(self):
         # Créer une instance de QMessageBox
@@ -618,20 +583,15 @@ class ClientGUI(QMainWindow):
 
 
     def handle_message(self, message):
+        # Gérer le message de profil
         if message.lower().startswith("profile:"):
             _, profile_info = message.split(":", 1)
             QMessageBox.information(self, "Profil", profile_info)
-        elif message.lower().startswith("change_result:"):
-            _, result = message.split(":", 1)
-            if self.waiting_dialog is not None:
-                self.waiting_dialog.close()
-            QMessageBox.information(self, "Changement de Topic", result)
         else:
             self.chat_text.append(message)
             cursor = self.chat_text.textCursor()
             cursor.movePosition(QTextCursor.End)
             self.chat_text.setTextCursor(cursor)
-
 
     def send_message(self):
         message = self.message_entry.text()
@@ -639,7 +599,14 @@ class ClientGUI(QMainWindow):
         self.message_entry.clear()
 
     def change_topic(self):
-        self.show_change_topic_dialog()
+        # Créer une instance de TopicDialog
+        topic_dialog = TopicDialog(["Général", "BlaBla", "Comptabilité", "Informatique", "Marketing"], self)
+        result = topic_dialog.exec_()
+
+        if result == QDialog.Accepted:
+            new_topic = topic_dialog.selectedTopic()
+            self.client_socket.send(f"change:{new_topic}".encode())
+            self.message_entry.clear()
 
     def show_instructions(self):
         # Créer une instance de QMessageBox

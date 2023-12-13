@@ -78,6 +78,23 @@ def user_exists(identifiant):
 
     return result is not None
 
+def save_authorization(identifiant, topic):
+    connection = mysql.connector.connect(**db_config)
+    cursor = connection.cursor()
+
+    try:
+        # Insérer l'autorisation dans la base de données
+        cursor.execute("INSERT INTO autorisation (utilisateur_identifiant, topic) VALUES (%s, %s)",
+                       (identifiant, topic))
+        connection.commit()
+    except Exception as e:
+        print(f"Error saving authorization to database: {e}")
+        connection.rollback()
+    finally:
+        cursor.close()
+        connection.close()
+
+
 def insert_user_profile(nom, prenom, adresse_mail, identifiant, mot_de_passe, adresse_ip):
     connection = mysql.connector.connect(**db_config)
     cursor = connection.cursor()
@@ -145,6 +162,21 @@ def save_message_to_db(identifiant, message_texte, current_topic, address):
         cursor.close()
         connection.close()
 
+def is_user_authorized(identifiant, nouveau_topic):
+    connection = mysql.connector.connect(**db_config)
+    cursor = connection.cursor()
+
+    # Vérifier si l'utilisateur a une autorisation pour le topic spécifié
+    cursor.execute("SELECT id FROM autorisation WHERE utilisateur_identifiant = %s AND topic = %s",
+                   (identifiant, nouveau_topic))
+    result = cursor.fetchone()
+
+    cursor.close()
+    connection.close()
+
+    return result is not None
+
+
 def broadcast_message(message, clients, topic, identifiant):
     for client_conn, client_topic in clients:
         if client_topic == topic:
@@ -179,6 +211,7 @@ def create_user_profile(conn):
                 identifiant = conn.recv(1024).decode()
 
                 dico[conn] = identifiant
+                dico2[identifiant] = conn
 
                 conn.send("Entrez votre mot de passe : ".encode())
                 mot_de_passe = conn.recv(1024).decode()
@@ -228,6 +261,7 @@ def create_user_profile(conn):
                 conn.send("Entrez votre identifiant : ".encode())
                 identifiant = conn.recv(1024).decode()
                 dico[conn] = identifiant
+                dico2[identifiant] = conn
 
                 conn.send("Entrez votre mot de passe : ".encode())
                 mot_de_passe = conn.recv(1024).decode()
@@ -252,7 +286,7 @@ def create_user_profile(conn):
 
 def handle_client(conn, address, flag_lock, flag, clients):
     flag2 = True
-    topic_actuel = "Général"
+    
     
     try:
         print(f"Connexion établie avec {address}.")
@@ -262,6 +296,9 @@ def handle_client(conn, address, flag_lock, flag, clients):
         choix_topic_valide = False
 
         with flag_lock:
+            topic_actuel = "Général"
+            identifiant = dico[conn]
+            dico3[identifiant] = topic_actuel
             clients.append((conn, topic_actuel))
             conn.send(f"Bienvenue dans le salon {topic_actuel} !".encode())
 
@@ -281,17 +318,19 @@ def handle_client(conn, address, flag_lock, flag, clients):
 
 
             elif message.lower() == "bye":
-                print(f"Client {address} a quitté le salon {topic_actuel}.")
+                topic = dico3[identifiant]
+                print(f"Client {address} a quitté le salon {topic}.")
                 with flag_lock:
-                    clients.remove((conn, topic_actuel))
+                    clients.remove((conn, topic))
                 break
             else:
                 # Enregistrez le message dans la base de données
                 identifiant = dico[conn]
-                save_message_to_db(identifiant, message, topic_actuel, address[0])
+                topic = dico3[identifiant]
+                save_message_to_db(identifiant, message, topic, address[0])
                 # Exclure les messages de changement de sujet du chat
                 if not message.lower().startswith("change:"):
-                    broadcast_message(f"{message}", clients, topic_actuel, identifiant)
+                    broadcast_message(f"{message}", clients, topic, identifiant)
 
     except ConnectionResetError:
         print(f"La connexion avec {address} a été réinitialisée par le client.")
@@ -304,8 +343,6 @@ def handle_client(conn, address, flag_lock, flag, clients):
 def server_shell(flag_lock, flag, clients,):
     if not authenticate_shell():
         return
-
-    topic_actuel = "Général"  
 
     while flag[0]:
         commande = input("Entrez 'kill' pour arrêter le serveur : ")
@@ -331,17 +368,15 @@ def server_shell(flag_lock, flag, clients,):
                 identifiant = user_and_text[0].strip()  # Supprime les espaces autour du nom d'utilisateur
                 if identifiant in demandes_en_attente:
                     new_topic = demandes_en_attente[identifiant]
-                    for k, v in dico.items():
-                        with flag_lock:
-                            tu = (k, topic_actuel)
-                            if tu in clients:
-                                clients.remove(tu)
-                                tu1 = (k, new_topic)
-                                clients.append(tu1)
-                    topic_actuel = new_topic
+                    conn = dico2[identifiant]
+                    topic2 = dico3[identifiant]
+                    with flag_lock:
+                        clients.remove((conn, topic2))
+                        clients.append((conn, new_topic))
+                    dico3[identifiant] = new_topic
                     for client_conn, _ in clients:
-                        if client_conn == k:
-                            client_conn.send(f"Vous avez changé de salon. Bienvenue dans le salon {topic_actuel} !".encode())
+                        if client_conn == conn:
+                            client_conn.send(f"Vous avez changé de salon. Bienvenue dans le salon {new_topic} !".encode())
                             break
                     print(f"La demande de {identifiant} pour rejoindre {new_topic} a été acceptée.")
                     # Supprimer la demande en attente après l'acceptation
@@ -349,7 +384,22 @@ def server_shell(flag_lock, flag, clients,):
                 else:
                     print(f"Aucune demande en attente pour {identifiant}.")
             else:
-                print("Commande incorrecte. Utilisez 'accept@identifiant:BlaBla'.")
+                print("Commande incorrecte. Utilisez 'accept@identifiant'.")
+        elif commande.lower().startswith("refuser@"):
+            parts = commande.split("@")
+            if len(parts) == 2:
+                identifiant = parts[1].strip()  # Supprime les espaces autour du nom d'utilisateur
+                if identifiant in demandes_en_attente:
+                    # Répondre au client refusé
+                    conn = dico2[identifiant]
+                    conn.send("Votre demande a été refusée.".encode())
+                    # Supprimer la demande en attente après le refus
+                    del demandes_en_attente[identifiant]
+                    print(f"La demande de {identifiant} a été refusée.")
+                else:
+                    print(f"Aucune demande en attente pour {identifiant}.")
+            else:
+                print("Commande incorrecte. Utilisez 'refuser@identifiant'.")
         else:
             print("Commande non reconnue. Utilisez 'kill', 'showdemande' ou 'accept@identifiant'.")
 
@@ -360,7 +410,9 @@ if __name__ == '__main__':
     flag_lock = threading.Lock()
     client_threads = []  # Liste pour stocker les threads clients
     clients = []
+    dico3 = {}
     dico = {}
+    dico2 = {}
     demandes_en_attente = {}
 
 
