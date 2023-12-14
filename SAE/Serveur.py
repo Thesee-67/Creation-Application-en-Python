@@ -13,8 +13,40 @@ db_config = {
     'database': 'sae_r309'
 }
 
+import mysql.connector
 
+# Assurez-vous d'avoir db_config défini avec les informations de connexion à votre base de données
 
+def get_banned_clients():
+    connection = mysql.connector.connect(**db_config)
+    cursor = connection.cursor()
+
+    try:
+        cursor.execute("SELECT identifiant FROM sanctions WHERE type_sanction = 'ban'")
+        result = cursor.fetchall()
+        return [row[0] for row in result]
+    except Exception as e:
+        print(f"Erreur lors de la récupération des clients bannis : {e}")
+        return []
+    finally:
+        cursor.close()
+        connection.close()
+
+def get_kicked_clients():
+    connection = mysql.connector.connect(**db_config)
+    cursor = connection.cursor()
+
+    try:
+        cursor.execute("SELECT identifiant, date_sanction FROM sanctions WHERE type_sanction = 'kick'")
+        result = cursor.fetchall()
+        return [(row[0], row[1]) for row in result]
+    except Exception as e:
+        print(f"Erreur lors de la récupération des clients kickés : {e}")
+        return []
+    finally:
+        cursor.close()
+        connection.close()
+        
 def apply_sanction(conn, identifiant, type_sanction, flag_lock=None):
     if type_sanction == "ban":
         save_sanction_to_db(identifiant, conn.getpeername()[0], type_sanction,flag_lock)
@@ -555,6 +587,14 @@ def server_shell(flag_lock, flag, clients,):
                 print(f"Sanction de 1h appliquée à {identifiant}.")
             else:
                 print("Commande incorrecte. Utilisez 'kick@identifiant'.")
+        elif commande.lower() == "showban":
+            print("Clients bannis :")
+            for identifiant in get_banned_clients():
+                print(f"- {identifiant}")
+        elif commande.lower() == "showkick":
+            print("Clients kickés :")
+            for identifiant, _ in get_kicked_clients():
+                print(f"- {identifiant}")
         else:
             print("Commande non reconnue. Utilisez 'kill', 'showdemande' ou 'accept@identifiant'.")
 
