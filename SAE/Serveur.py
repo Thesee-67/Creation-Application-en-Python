@@ -2,6 +2,8 @@ import socket
 import threading
 import mysql.connector
 import re
+from datetime import datetime, timedelta 
+
 
 # Configuration de la base de données
 db_config = {
@@ -10,6 +12,99 @@ db_config = {
     'password': '04/11/17',
     'database': 'sae_r309'
 }
+
+
+
+def apply_sanction(conn, identifiant, type_sanction, flag_lock=None):
+    if type_sanction == "ban":
+        save_sanction_to_db(identifiant, conn.getpeername()[0], type_sanction,flag_lock)
+        conn.send("Vous avez été banni. Déconnexion en cours...".encode())
+        conn.close()
+    elif type_sanction == "kick":
+        save_sanction_to_db(identifiant, conn.getpeername()[0], type_sanction,flag_lock)
+        conn.send("Vous avez été kické. Déconnexion en cours...".encode())
+        conn.close()
+
+def save_sanction_to_db(identifiant, adresse_ip, type_sanction, duree=None, flag_lock=None):
+    connection = mysql.connector.connect(**db_config)
+    cursor = connection.cursor()
+
+    if flag_lock:
+        with flag_lock:
+            try:
+                if type_sanction == "kick" and duree is not None:
+                    # Si c'est un kick, calculez la date de fin de sanction (1 heure)
+                    current_time = datetime.now()
+                    date_fin_sanction = current_time + timedelta(hours=1)
+                    cursor.execute(
+                        "INSERT INTO sanctions (identifiant, adresse_ip, type_sanction,date_sanction, date_fin_sanction) VALUES (%s, %s, %s, %s, %s, %s)",
+                        (identifiant, adresse_ip, type_sanction, current_time,date_fin_sanction)
+                    )
+                elif type_sanction == "ban":
+                    cursor.execute(
+                        "INSERT INTO sanctions (identifiant, adresse_ip, type_sanction,) VALUES (%s, %s, %s, %s)",
+                        (identifiant, adresse_ip, type_sanction,)
+                    )
+
+                connection.commit()
+            except Exception as e:
+                print(f"Erreur lors de l'enregistrement de la sanction dans la base de données : {e}")
+                connection.rollback()
+            finally:
+                cursor.close()
+                connection.close()
+
+def is_user_banned(identifiant):
+    connection = mysql.connector.connect(**db_config)
+    cursor = connection.cursor()
+
+    try:
+        cursor.execute("SELECT id FROM sanctions WHERE identifiant = %s AND type_sanction = 'ban'", (identifiant,))
+        result = cursor.fetchone()
+        return result is not None
+
+    except Exception as e:
+        print(f"Erreur lors de la vérification du bannissement : {e}")
+        return False
+
+    finally:
+        cursor.close()
+        connection.close()
+
+
+def is_user_kicked(identifiant):
+    # Vérifier si l'utilisateur est kické
+    connection = mysql.connector.connect(**db_config)
+    cursor = connection.cursor()
+
+    try:
+        # Sélectionner la sanction de type "kick" la plus récente pour l'utilisateur
+        cursor.execute("SELECT date_fin_sanction FROM sanctions WHERE identifiant = %s AND type_sanction = 'kick' ORDER BY date_fin_sanction DESC LIMIT 1", (identifiant,))
+        result = cursor.fetchone()
+
+        if result is not None:
+            date_fin_sanction = result[0]
+            current_time = datetime.now()
+
+            # Comparer la date de fin de sanction avec l'heure actuelle
+            if current_time < date_fin_sanction:
+                return True
+    except Exception as e:
+        print(f"Erreur lors de la vérification du statut de kick de l'utilisateur : {e}")
+    finally:
+        cursor.close()
+        connection.close()
+
+    return False
+
+def close_client_connection(identifiant, flag_lock):
+    # Fonction pour fermer la connexion du client
+    if flag_lock:
+        with flag_lock:
+            if identifiant in dico2:
+                conn = dico2[identifiant]
+                conn.send("Vous avez été sanctionné. Déconnexion en cours...".encode())
+                conn.close()
 
 def get_server_credentials():
     connection = mysql.connector.connect(**db_config)
@@ -53,6 +148,7 @@ def check_user_credentials(identifiant, mot_de_passe):
     connection.close()
 
     return result is not None
+
 
 def save_server_credentials(login, password):
     connection = mysql.connector.connect(**db_config)
@@ -213,6 +309,17 @@ def create_user_profile(conn):
                 dico[conn] = identifiant
                 dico2[identifiant] = conn
 
+                if is_user_banned(identifiant):
+                    conn.send("Vous êtes banni. Contactez l'administrateur pour plus d'informations.\n".encode())
+                    conn.close()
+                    return
+                
+
+                if is_user_kicked(identifiant):
+                    conn.send(f"Vous avez été kické. Attendez la fin de la sanction pour vous reconnecter.\n".encode())
+                    conn.close()
+                    return
+
                 conn.send("Entrez votre mot de passe : ".encode())
                 mot_de_passe = conn.recv(1024).decode()
 
@@ -309,7 +416,27 @@ def handle_client(conn, address, flag_lock, flag, clients):
             if message.lower().startswith("change:"):
                 identifiant = dico[conn]
                 nouveau_topic = message.split(":")[1].strip()
-                if is_user_authorized(identifiant, nouveau_topic):
+                if nouveau_topic not in Salons_topic:
+                    conn.send("Sujet invalide. Veuillez choisir parmi les sujets disponibles.".encode())
+                elif nouveau_topic == "BlaBla":
+                    if is_user_authorized(identifiant, nouveau_topic):
+                        conn.send(f"Vous avez changé de salon. Bienvenue dans le salon {nouveau_topic} !".encode())             
+                        # Vérifier si une demande en attente existe déjà pour cet utilisateur
+                        topic_actuel = dico3[identifiant]
+                        with flag_lock:
+                            clients.remove((conn, topic_actuel))
+                            clients.append((conn, nouveau_topic))
+                        dico3[identifiant] = nouveau_topic
+                    else:
+                        topic_actuel = dico3[identifiant]
+                    # Accepter automatiquement le changement vers "BlaBla" et enregistrer dans la table d'autorisations
+                        with flag_lock:
+                            clients.remove((conn, topic_actuel))
+                            clients.append((conn, nouveau_topic))
+                        dico3[identifiant] = nouveau_topic
+                        conn.send(f"Vous avez changé de salon. Bienvenue dans le salon {nouveau_topic} !".encode())
+                        save_authorization(identifiant, nouveau_topic)
+                elif is_user_authorized(identifiant, nouveau_topic):
                     conn.send(f"Vous avez changé de salon. Bienvenue dans le salon {nouveau_topic} !".encode())             
                     # Vérifier si une demande en attente existe déjà pour cet utilisateur
                     topic_actuel = dico3[identifiant]
@@ -410,6 +537,24 @@ def server_shell(flag_lock, flag, clients,):
                     print(f"Aucune demande en attente pour {identifiant}.")
             else:
                 print("Commande incorrecte. Utilisez 'refuser@identifiant'.")
+        elif commande.lower().startswith("ban@"):
+            parts = commande.split("@")
+            if len(parts) == 2:
+                identifiant = parts[1].strip()  # Obtenez l'identifiant depuis la commande
+                conn = dico2[identifiant]
+                apply_sanction(conn, identifiant, 'ban', flag_lock=flag_lock)
+                print(f"{identifiant} a été banni.")
+            else:
+                print("Commande incorrecte. Utilisez 'ban@identifiant'.")
+        elif commande.lower().startswith("kick@"):
+            parts = commande.split("@")
+            if len(parts) == 2:
+                identifiant = parts[1].strip()
+                conn = dico2[identifiant]
+                apply_sanction(conn, identifiant, 'kick',flag_lock=flag_lock)
+                print(f"Sanction de 1h appliquée à {identifiant}.")
+            else:
+                print("Commande incorrecte. Utilisez 'kick@identifiant'.")
         else:
             print("Commande non reconnue. Utilisez 'kill', 'showdemande' ou 'accept@identifiant'.")
 
@@ -424,7 +569,7 @@ if __name__ == '__main__':
     dico = {}
     dico2 = {}
     demandes_en_attente = {}
-
+    Salons_topic = ["Général","BlaBla","Comptabilité","Informatique","Marketing"]
 
     server_socket = socket.socket()
     server_socket.bind(('0.0.0.0', port))
