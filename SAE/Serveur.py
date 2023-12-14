@@ -13,9 +13,6 @@ db_config = {
     'database': 'sae_r309'
 }
 
-import mysql.connector
-
-# Assurez-vous d'avoir db_config défini avec les informations de connexion à votre base de données
 
 def get_banned_clients():
     connection = mysql.connector.connect(**db_config)
@@ -49,33 +46,37 @@ def get_kicked_clients():
         
 def apply_sanction(conn, identifiant, type_sanction, flag_lock=None):
     if type_sanction == "ban":
-        save_sanction_to_db(identifiant, conn.getpeername()[0], type_sanction,flag_lock)
+        save_sanction_to_db(identifiant, conn.getpeername()[0], type_sanction, flag_lock)
         conn.send("Vous avez été banni. Déconnexion en cours...".encode())
         conn.close()
     elif type_sanction == "kick":
-        save_sanction_to_db(identifiant, conn.getpeername()[0], type_sanction,flag_lock)
+        save_sanction_to_db(identifiant, conn.getpeername()[0], type_sanction, flag_lock)
         conn.send("Vous avez été kické. Déconnexion en cours...".encode())
         conn.close()
 
-def save_sanction_to_db(identifiant, adresse_ip, type_sanction, duree=None, flag_lock=None):
+def save_sanction_to_db(identifiant, adresse_ip, type_sanction, flag_lock=None):
     connection = mysql.connector.connect(**db_config)
     cursor = connection.cursor()
 
     if flag_lock:
         with flag_lock:
             try:
-                if type_sanction == "kick" and duree is not None:
+                # Supprimer les sanctions existantes pour cet identifiant et ce type de sanction
+                cursor.execute("DELETE FROM sanctions WHERE identifiant = %s AND type_sanction = %s", (identifiant, type_sanction))
+                connection.commit()
+
+                if type_sanction == "kick":
                     # Si c'est un kick, calculez la date de fin de sanction (1 heure)
                     current_time = datetime.now()
                     date_fin_sanction = current_time + timedelta(hours=1)
                     cursor.execute(
-                        "INSERT INTO sanctions (identifiant, adresse_ip, type_sanction,date_sanction, date_fin_sanction) VALUES (%s, %s, %s, %s, %s, %s)",
-                        (identifiant, adresse_ip, type_sanction, current_time,date_fin_sanction)
+                        "INSERT INTO sanctions (identifiant, adresse_ip, type_sanction, date_sanction, date_fin_sanction) VALUES (%s, %s, %s, %s, %s)",
+                        (identifiant, adresse_ip, type_sanction, current_time, date_fin_sanction)
                     )
                 elif type_sanction == "ban":
                     cursor.execute(
-                        "INSERT INTO sanctions (identifiant, adresse_ip, type_sanction,) VALUES (%s, %s, %s, %s)",
-                        (identifiant, adresse_ip, type_sanction,)
+                        "INSERT INTO sanctions (identifiant, adresse_ip, type_sanction, date_sanction) VALUES (%s, %s, %s, %s)",
+                        (identifiant, adresse_ip, type_sanction, datetime.now())
                     )
 
                 connection.commit()
@@ -85,6 +86,9 @@ def save_sanction_to_db(identifiant, adresse_ip, type_sanction, duree=None, flag
             finally:
                 cursor.close()
                 connection.close()
+
+
+
 
 def is_user_banned(identifiant):
     connection = mysql.connector.connect(**db_config)
@@ -99,6 +103,59 @@ def is_user_banned(identifiant):
         print(f"Erreur lors de la vérification du bannissement : {e}")
         return False
 
+    finally:
+        cursor.close()
+        connection.close()
+
+import mysql.connector
+import time
+
+# Assurez-vous d'avoir db_config défini avec les informations de connexion à votre base de données
+
+def unban(identifiant, flag_lock=None):
+    connection = mysql.connector.connect(**db_config)
+    cursor = connection.cursor()
+
+    try:
+        cursor.execute("DELETE FROM sanctions WHERE identifiant = %s AND type_sanction = 'ban'", (identifiant,))
+        rows_deleted = cursor.rowcount
+        connection.commit()
+
+        if rows_deleted > 0:
+            if flag_lock:
+                with flag_lock:
+                    print(f"{identifiant} a été débanni.")
+            else:
+                print(f"{identifiant} a été débanni.")
+        else:
+            print(f"Aucune sanction contre l'identifiant {identifiant}.")
+
+    except Exception as e:
+        print(f"Erreur lors du débannissement de {identifiant} : {e}")
+    finally:
+        cursor.close()
+        connection.close()
+
+def unkick(identifiant, flag_lock=None):
+    connection = mysql.connector.connect(**db_config)
+    cursor = connection.cursor()
+
+    try:
+        cursor.execute("DELETE FROM sanctions WHERE identifiant = %s AND type_sanction = 'kick'", (identifiant,))
+        rows_deleted = cursor.rowcount
+        connection.commit()
+
+        if rows_deleted > 0:
+            if flag_lock:
+                with flag_lock:
+                    print(f"{identifiant} a été unkick.")
+            else:
+                print(f"{identifiant} a été unkick.")
+        else:
+            print(f"Aucune sanction contre l'identifiant {identifiant}.")
+
+    except Exception as e:
+        print(f"Erreur lors de l'unkick de {identifiant} : {e}")
     finally:
         cursor.close()
         connection.close()
@@ -595,6 +652,21 @@ def server_shell(flag_lock, flag, clients,):
             print("Clients kickés :")
             for identifiant, _ in get_kicked_clients():
                 print(f"- {identifiant}")
+        elif commande.lower().startswith("unban@"):
+            parts = commande.split("@")
+            if len(parts) == 2:
+                identifiant = parts[1].strip()
+                unban(identifiant)
+            else:
+                print("Commande incorrecte. Utilisez 'unban@identifiant'.")
+
+        elif commande.lower().startswith("unkick@"):
+            parts = commande.split("@")
+            if len(parts) == 2:
+                identifiant = parts[1].strip()
+                unkick(identifiant)
+            else:
+                print("Commande incorrecte. Utilisez 'unkick@identifiant'.")
         else:
             print("Commande non reconnue. Utilisez 'kill', 'showdemande' ou 'accept@identifiant'.")
 
