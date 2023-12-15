@@ -3,56 +3,102 @@ import threading
 import mysql.connector
 import re
 from datetime import datetime, timedelta 
+import logging
 
 
 # Configuration de la base de données
 db_config = {
     'host': 'localhost',
-    'user': 'root',
-    'password': '04/11/17',
+    'user': 'administrateur',
+    'password': 'toto',
     'database': 'sae_r309'
 }
 
+logging.basicConfig(filename='SAE\Log_Server\server.log', level=logging.ERROR)
 
 def get_banned_clients():
-    connection = mysql.connector.connect(**db_config)
-    cursor = connection.cursor()
-
     try:
-        cursor.execute("SELECT identifiant FROM sanctions WHERE type_sanction = 'ban'")
-        result = cursor.fetchall()
-        return [row[0] for row in result]
+        connection = mysql.connector.connect(**db_config)
+        cursor = connection.cursor()
+
+        try:
+            cursor.execute("SELECT identifiant FROM sanctions WHERE type_sanction = 'ban'")
+            result = cursor.fetchall()
+            return [row[0] for row in result]
+        except mysql.connector.Error as mysql_error:
+            print(f"Erreur MySQL lors de la récupération des clients bannis : {mysql_error}")
+            logging.error(f"Erreur MySQL lors de la récupération des clients bannis : {mysql_error}")
+            return []
+        except Exception as e:
+            print(f"Erreur inattendue lors de la récupération des clients bannis : {e}")
+            logging.error(f"Erreur inattendue lors de la récupération des clients bannis : {e}")
+            return []
+        finally:
+            cursor.close()
+    except mysql.connector.Error as mysql_error:
+        print(f"Erreur MySQL lors de la connexion à la base de données : {mysql_error}")
+        logging.error(f"Erreur MySQL lors de la connexion à la base de données : {mysql_error}")
+        return []
     except Exception as e:
-        print(f"Erreur lors de la récupération des clients bannis : {e}")
+        print(f"Erreur inattendue lors de la connexion à la base de données : {e}")
+        logging.error(f"Erreur inattendue lors de la connexion à la base de données : {e}")
         return []
     finally:
-        cursor.close()
-        connection.close()
+        if 'connection' in locals() and connection.is_connected():
+            connection.close()
+
+
 
 def get_kicked_clients():
-    connection = mysql.connector.connect(**db_config)
-    cursor = connection.cursor()
-
     try:
-        cursor.execute("SELECT identifiant, date_sanction FROM sanctions WHERE type_sanction = 'kick'")
-        result = cursor.fetchall()
-        return [(row[0], row[1]) for row in result]
+        connection = mysql.connector.connect(**db_config)
+        cursor = connection.cursor()
+
+        try:
+            cursor.execute("SELECT identifiant, date_sanction FROM sanctions WHERE type_sanction = 'kick'")
+            result = cursor.fetchall()
+            return [(row[0], row[1]) for row in result]
+        except mysql.connector.Error as mysql_error:
+            print(f"Erreur MySQL lors de la récupération des clients kickés : {mysql_error}")
+            logging.error(f"Erreur MySQL lors de la récupération des clients kickés : {mysql_error}")
+            return []
+        except Exception as e:
+            print(f"Erreur inattendue lors de la récupération des clients kickés : {e}")
+            logging.error(f"Erreur inattendue lors de la récupération des clients kickés : {e}")
+            return []
+        finally:
+            cursor.close()
+    except mysql.connector.Error as mysql_error:
+        print(f"Erreur MySQL lors de la connexion à la base de données : {mysql_error}")
+        logging.error(f"Erreur MySQL lors de la connexion à la base de données : {mysql_error}")
+        return []
     except Exception as e:
-        print(f"Erreur lors de la récupération des clients kickés : {e}")
+        print(f"Erreur inattendue lors de la connexion à la base de données : {e}")
+        logging.error(f"Erreur inattendue lors de la connexion à la base de données : {e}")
         return []
     finally:
-        cursor.close()
-        connection.close()
+        if 'connection' in locals() and connection.is_connected():
+            connection.close()
         
 def apply_sanction(conn, identifiant, type_sanction, flag_lock=None):
-    if type_sanction == "ban":
-        save_sanction_to_db(identifiant, conn.getpeername()[0], type_sanction, flag_lock)
-        conn.send("Vous avez été banni. Déconnexion en cours...".encode())
-        conn.close()
-    elif type_sanction == "kick":
-        save_sanction_to_db(identifiant, conn.getpeername()[0], type_sanction, flag_lock)
-        conn.send("Vous avez été kické. Déconnexion en cours...".encode())
-        conn.close()
+    try:
+        if type_sanction == "ban":
+            save_sanction_to_db(identifiant, conn.getpeername()[0], type_sanction, flag_lock)
+            conn.send("Vous avez été banni. Déconnexion en cours...".encode())
+            print(f"{identifiant} c'est fait bannir")
+        elif type_sanction == "kick":
+            save_sanction_to_db(identifiant, conn.getpeername()[0], type_sanction, flag_lock)
+            conn.send("Vous avez été kické. Déconnexion en cours...".encode())
+            print(f"{identifiant} c'est fait kick pour 1 heure")
+    except Exception as e:
+        print(f"Erreur lors de l'application de la sanction : {e}")
+        logging.error(f"Erreur lors de l'application de la sanction : {e}")
+    finally:
+        try:
+            conn.close()
+        except Exception as close_error:
+            print(f"Erreur lors de la fermeture de la connexion : {close_error}")
+            logging.error(f"Erreur lors de la fermeture de la connexion : {close_error}")
 
 def save_sanction_to_db(identifiant, adresse_ip, type_sanction, flag_lock=None):
     connection = mysql.connector.connect(**db_config)
@@ -82,83 +128,131 @@ def save_sanction_to_db(identifiant, adresse_ip, type_sanction, flag_lock=None):
                 connection.commit()
             except Exception as e:
                 print(f"Erreur lors de l'enregistrement de la sanction dans la base de données : {e}")
+                logging.error(f"Erreur lors de l'enregistrement de la sanction dans la base de données : {e}")
                 connection.rollback()
             finally:
                 cursor.close()
                 connection.close()
 
-
-
-
 def is_user_banned(identifiant):
-    connection = mysql.connector.connect(**db_config)
-    cursor = connection.cursor()
-
     try:
-        cursor.execute("SELECT id FROM sanctions WHERE identifiant = %s AND type_sanction = 'ban'", (identifiant,))
-        result = cursor.fetchone()
-        return result is not None
+        connection = mysql.connector.connect(**db_config)
+        cursor = connection.cursor()
 
-    except Exception as e:
-        print(f"Erreur lors de la vérification du bannissement : {e}")
+        try:
+            cursor.execute("SELECT id FROM sanctions WHERE identifiant = %s AND type_sanction = 'ban'", (identifiant,))
+            result = cursor.fetchone()
+            return result is not None
+
+        except mysql.connector.Error as mysql_error:
+            print(f"Erreur MySQL lors de la vérification du bannissement : {mysql_error}")
+            logging.error(f"Erreur MySQL lors de la vérification du bannissement : {mysql_error}")
+            return False
+
+        except Exception as e:
+            print(f"Erreur inattendue lors de la vérification du bannissement : {e}")
+            logging.error(f"Erreur inattendue lors de la vérification du bannissement : {e}")
+            return False
+
+        finally:
+            cursor.close()
+    except mysql.connector.Error as mysql_error:
+        print(f"Erreur MySQL lors de la connexion à la base de données : {mysql_error}")
+        logging.error(f"Erreur MySQL lors de la connexion à la base de données : {mysql_error}")
         return False
-
+    except Exception as e:
+        print(f"Erreur inattendue lors de la connexion à la base de données : {e}")
+        logging.error(f"Erreur inattendue lors de la connexion à la base de données : {e}")
+        return False
     finally:
-        cursor.close()
-        connection.close()
+        if 'connection' in locals() and connection.is_connected():
+            connection.close()
 
-import mysql.connector
-import time
-
-# Assurez-vous d'avoir db_config défini avec les informations de connexion à votre base de données
 
 def unban(identifiant, flag_lock=None):
-    connection = mysql.connector.connect(**db_config)
-    cursor = connection.cursor()
-
     try:
-        cursor.execute("DELETE FROM sanctions WHERE identifiant = %s AND type_sanction = 'ban'", (identifiant,))
-        rows_deleted = cursor.rowcount
-        connection.commit()
+        connection = mysql.connector.connect(**db_config)
+        cursor = connection.cursor()
 
-        if rows_deleted > 0:
-            if flag_lock:
-                with flag_lock:
+        try:
+            cursor.execute("DELETE FROM sanctions WHERE identifiant = %s AND type_sanction = 'ban'", (identifiant,))
+            rows_deleted = cursor.rowcount
+            connection.commit()
+
+            if rows_deleted > 0:
+                if flag_lock:
+                    with flag_lock:
+                        print(f"{identifiant} a été débanni.")
+                else:
                     print(f"{identifiant} a été débanni.")
             else:
-                print(f"{identifiant} a été débanni.")
-        else:
-            print(f"Aucune sanction contre l'identifiant {identifiant}.")
+                print(f"Aucune sanction contre l'identifiant {identifiant}.")
+
+        except mysql.connector.Error as mysql_error:
+            print(f"Erreur MySQL lors du débannissement de {identifiant} : {mysql_error}")
+            logging.error(f"Erreur MySQL lors du débannissement de {identifiant} : {mysql_error}")
+
+        except Exception as e:
+            print(f"Erreur inattendue lors du débannissement de {identifiant} : {e}")
+            logging.error(f"Erreur inattendue lors du débannissement de {identifiant} : {e}")
+
+        finally:
+            cursor.close()
+
+    except mysql.connector.Error as mysql_error:
+        print(f"Erreur MySQL lors de la connexion à la base de données : {mysql_error}")
+        logging.error(f"Erreur MySQL lors de la connexion à la base de données : {mysql_error}")
 
     except Exception as e:
-        print(f"Erreur lors du débannissement de {identifiant} : {e}")
+        print(f"Erreur inattendue lors de la connexion à la base de données : {e}")
+        logging.error(f"Erreur inattendue lors de la connexion à la base de données : {e}")
+
     finally:
-        cursor.close()
-        connection.close()
+        if 'connection' in locals() and connection.is_connected():
+            connection.close()
+
 
 def unkick(identifiant, flag_lock=None):
-    connection = mysql.connector.connect(**db_config)
-    cursor = connection.cursor()
-
     try:
-        cursor.execute("DELETE FROM sanctions WHERE identifiant = %s AND type_sanction = 'kick'", (identifiant,))
-        rows_deleted = cursor.rowcount
-        connection.commit()
+        connection = mysql.connector.connect(**db_config)
+        cursor = connection.cursor()
 
-        if rows_deleted > 0:
-            if flag_lock:
-                with flag_lock:
+        try:
+            cursor.execute("DELETE FROM sanctions WHERE identifiant = %s AND type_sanction = 'kick'", (identifiant,))
+            rows_deleted = cursor.rowcount
+            connection.commit()
+
+            if rows_deleted > 0:
+                if flag_lock:
+                    with flag_lock:
+                        print(f"{identifiant} a été unkick.")
+                else:
                     print(f"{identifiant} a été unkick.")
             else:
-                print(f"{identifiant} a été unkick.")
-        else:
-            print(f"Aucune sanction contre l'identifiant {identifiant}.")
+                print(f"Aucune sanction contre l'identifiant {identifiant}.")
+
+        except mysql.connector.Error as mysql_error:
+            print(f"Erreur MySQL lors de l'unkick de {identifiant} : {mysql_error}")
+            logging.error(f"Erreur MySQL lors de l'unkick de {identifiant} : {mysql_error}")
+
+        except Exception as e:
+            print(f"Erreur inattendue lors de l'unkick de {identifiant} : {e}")
+            logging.error(f"Erreur inattendue lors de l'unkick de {identifiant} : {e}")
+
+        finally:
+            cursor.close()
+
+    except mysql.connector.Error as mysql_error:
+        print(f"Erreur MySQL lors de la connexion à la base de données : {mysql_error}")
+        logging.error(f"Erreur MySQL lors de la connexion à la base de données : {mysql_error}")
 
     except Exception as e:
-        print(f"Erreur lors de l'unkick de {identifiant} : {e}")
+        print(f"Erreur inattendue lors de la connexion à la base de données : {e}")
+        logging.error(f"Erreur inattendue lors de la connexion à la base de données : {e}")
+
     finally:
-        cursor.close()
-        connection.close()
+        if 'connection' in locals() and connection.is_connected():
+            connection.close()
 
 
 def is_user_kicked(identifiant):
@@ -180,20 +274,12 @@ def is_user_kicked(identifiant):
                 return True
     except Exception as e:
         print(f"Erreur lors de la vérification du statut de kick de l'utilisateur : {e}")
+        logging.error(f"Erreur lors de la vérification du statut de kick de l'utilisateur : {e}")
     finally:
         cursor.close()
         connection.close()
 
     return False
-
-def close_client_connection(identifiant, flag_lock):
-    # Fonction pour fermer la connexion du client
-    if flag_lock:
-        with flag_lock:
-            if identifiant in dico2:
-                conn = dico2[identifiant]
-                conn.send("Vous avez été sanctionné. Déconnexion en cours...".encode())
-                conn.close()
 
 def get_server_credentials():
     connection = mysql.connector.connect(**db_config)
@@ -274,6 +360,7 @@ def save_authorization(identifiant, topic):
         connection.commit()
     except Exception as e:
         print(f"Error saving authorization to database: {e}")
+        logging.error(f"Error saving authorization to database: {e}")
         connection.rollback()
     finally:
         cursor.close()
@@ -292,6 +379,7 @@ def insert_user_profile(nom, prenom, adresse_mail, identifiant, mot_de_passe, ad
         print(f"Inserted user profile for {identifiant} successfully.")
     except Exception as e:
         print(f"Error inserting user profile for {identifiant}: {e}")
+        logging.error(f"Error inserting user profile for {identifiant}: {e}")
         connection.rollback()
 
     cursor.close()
@@ -342,6 +430,7 @@ def save_message_to_db(identifiant, message_texte, current_topic, address):
         connection.commit()
     except Exception as e:
         print(f"Error saving message to database: {e}")
+        logging.error(f"Error saving message to database: {e}")
         connection.rollback()
     finally:
         cursor.close()
@@ -380,7 +469,19 @@ def broadcast_message(message, clients, topic, identifiant):
                 # Gérer les erreurs de socket
                 continue
 
+def is_valid_name(nom):
+    pattern = re.compile(r'^[a-zA-Z]+([ \'-][a-zA-Z]+)*$')
+    return bool(re.match(pattern,nom))
 
+def is_valid_prenom(prenom):
+    pattern = re.compile(r'^[a-zA-Z]+([ \'-][a-zA-Z]+)*$')
+    return bool(re.match(pattern,prenom))
+
+def is_valid_mot_de_passe(mot_de_passe):
+    return bool(re.match(r'^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$', mot_de_passe))
+
+def is_valid_identifiant(identifiant):
+    return bool(re.match(r'^[A-Za-z0-9_-]{4,}$', identifiant))
 def create_user_profile(conn):
     conn.send("Bienvenue !\n".encode())
 
@@ -439,11 +540,21 @@ def create_user_profile(conn):
             conn.send("Entrez votre nom : ".encode())
             nom = conn.recv(1024).decode()
 
+            while not is_valid_name(nom):
+                conn.send("Format de nom invalide. Veuillez réessayer.\n".encode())
+                conn.send("Entrez votre nom : ".encode())
+                nom = conn.recv(1024).decode()
+
             conn.send("Entrez votre prénom : ".encode())
             prenom = conn.recv(1024).decode()
 
+            while not is_valid_prenom(prenom):
+                conn.send("Format de prénom invalide. Veuillez réessayer.\n".encode())
+                conn.send("Entrez votre prénom : ".encode())
+                prenom = conn.recv(1024).decode()
+
             while True:
-                conn.send("Adresse e-mail : ".encode())
+                conn.send("Adresse e-mail : \n".encode())
                 adresse_mail = conn.recv(1024).decode()
 
                 # Vérifier l'adresse e-mail
@@ -454,14 +565,26 @@ def create_user_profile(conn):
                 break
 
             while True:
-                conn.send("Entrez votre identifiant : ".encode())
+                conn.send("L'identifiant doit avoir au moins 4 caractères et ne peut contenir que des lettres, des chiffres, des tirets bas (_) et des tirets (-).\n".encode())
+                conn.send("Entrez votre identifiant : \n".encode())
                 identifiant = conn.recv(1024).decode()
+
+                while not is_valid_identifiant(identifiant):
+                    conn.send("Format de identifiant invalide. Veuillez réessayer.\n".encode())
+                    conn.send("Entrez votre identifiant : \n".encode())
+                    identifiant = conn.recv(1024).decode()
+                
                 dico[conn] = identifiant
                 dico2[identifiant] = conn
 
-                conn.send("Entrez votre mot de passe : ".encode())
+                conn.send(" Le mot de passe doit avoir au moins 8 caractères, inclure au moins une lettre et au moins un chiffre.\n".encode())
+                conn.send("Entrez votre mot de passe : \n".encode())
                 mot_de_passe = conn.recv(1024).decode()
 
+                while not is_valid_mot_de_passe(mot_de_passe):
+                    conn.send("Format de mot de passe invalide. Veuillez réessayer.\n".encode())
+                    conn.send("Entrez votre mot de passe : \n".encode())
+                    mot_de_passe = conn.recv(1024).decode()
 
                 # Ajouter la vérification des identifiants dans la base de données
                 if user_exists(identifiant):
@@ -559,8 +682,10 @@ def handle_client(conn, address, flag_lock, flag, clients):
 
     except ConnectionResetError:
         print(f"La connexion avec {address} a été réinitialisée par le client.")
+        logging.error(f"La connexion avec {address} a été réinitialisée par le client.")
     except Exception as e:
         print(f"Une exception s'est produite avec {address} : {e}")
+        logging.error(f"Une exception s'est produite avec {address} : {e}")
     finally:
         # Fermer la connexion du client
         conn.close()
@@ -710,8 +835,10 @@ if __name__ == '__main__':
 
     except KeyboardInterrupt:
         print("\nFermeture du serveur suite à une interruption clavier.")
+        logging.error("\nFermeture du serveur suite à une interruption clavier.")
     except Exception as e:
         print(f"Une exception s'est produite : {e}")
+        logging(f"Une exception s'est produite : {e}")
     finally:
         # Attendre que tous les threads clients se terminent avant de fermer le serveur
         for thread in client_threads:

@@ -1,0 +1,12 @@
+ERROR:root:
+Fermeture du serveur suite à une interruption clavier.
+ERROR:root:Erreur lors de l'enregistrement de la sanction dans la base de données : 1452 (23000): Cannot add or update a child row: a foreign key constraint fails (`sae_r309`.`sanctions`, CONSTRAINT `sanctions_ibfk_1` FOREIGN KEY (`identifiant`) REFERENCES `utilisateurs` (`identifiant`))
+ERROR:root:Une exception s'est produite avec ('127.0.0.1', 51270) : [WinError 10053] Une connexion établie a été abandonnée par un logiciel de votre ordinateur hôte
+ERROR:root:Une exception s'est produite avec ('127.0.0.1', 51323) : [WinError 10053] Une connexion établie a été abandonnée par un logiciel de votre ordinateur hôte
+ERROR:root:La connexion avec ('127.0.0.1', 51491) a été réinitialisée par le client.
+ERROR:root:La connexion avec ('127.0.0.1', 51506) a été réinitialisée par le client.
+ERROR:root:La connexion avec ('127.0.0.1', 51610) a été réinitialisée par le client.
+ERROR:root:La connexion avec ('127.0.0.1', 51632) a été réinitialisée par le client.
+ERROR:root:La connexion avec ('127.0.0.1', 51805) a été réinitialisée par le client.
+ERROR:root:La connexion avec ('127.0.0.1', 51824) a été réinitialisée par le client.
+ERROR:root:La connexion avec ('127.0.0.1', 51848) a été réinitialisée par le client.
