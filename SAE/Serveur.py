@@ -495,6 +495,7 @@ def create_user_profile(conn):
             while login_attempt < 3:
                 conn.send("Entrez votre identifiant : ".encode())
                 identifiant = conn.recv(1024).decode()
+                conn.send(f"Vous avez rentrer l'identifiant :{identifiant}.\n".encode())
 
                 dico[conn] = identifiant
                 dico2[identifiant] = conn
@@ -539,23 +540,30 @@ def create_user_profile(conn):
 
             conn.send("Entrez votre nom : ".encode())
             nom = conn.recv(1024).decode()
+            conn.send(f"Vous avez rentrer le nom :{nom}.\n".encode())
 
             while not is_valid_name(nom):
                 conn.send("Format de nom invalide. Veuillez réessayer.\n".encode())
                 conn.send("Entrez votre nom : ".encode())
                 nom = conn.recv(1024).decode()
+                conn.send(f"Vous avez rentrer le nom :{nom}.\n".encode())
 
             conn.send("Entrez votre prénom : ".encode())
             prenom = conn.recv(1024).decode()
+            conn.send(f"Vous avez rentrer le prenom :{prenom}.\n".encode())
 
             while not is_valid_prenom(prenom):
                 conn.send("Format de prénom invalide. Veuillez réessayer.\n".encode())
                 conn.send("Entrez votre prénom : ".encode())
-                prenom = conn.recv(1024).decode()
+                prenom = conn.recv(1024).decode()            
+                conn.send(f"Vous avez rentrer le prenom :{prenom}.\n".encode())
+
 
             while True:
                 conn.send("Adresse e-mail : \n".encode())
                 adresse_mail = conn.recv(1024).decode()
+                conn.send(f"Vous avez rentrer l'adresse mail :{adresse_mail}.\n".encode())
+
 
                 # Vérifier l'adresse e-mail
                 if not is_valid_email(adresse_mail):
@@ -568,11 +576,15 @@ def create_user_profile(conn):
                 conn.send("L'identifiant doit avoir au moins 4 caractères et ne peut contenir que des lettres, des chiffres, des tirets bas (_) et des tirets (-).\n".encode())
                 conn.send("Entrez votre identifiant : \n".encode())
                 identifiant = conn.recv(1024).decode()
+                conn.send(f"Vous avez rentrer l'identifiant :{identifiant}.\n".encode())
+
 
                 while not is_valid_identifiant(identifiant):
                     conn.send("Format de identifiant invalide. Veuillez réessayer.\n".encode())
                     conn.send("Entrez votre identifiant : \n".encode())
                     identifiant = conn.recv(1024).decode()
+                    conn.send(f"Vous avez rentrer l'identifiant :{identifiant}.\n".encode())
+
                 
                 dico[conn] = identifiant
                 dico2[identifiant] = conn
@@ -580,11 +592,14 @@ def create_user_profile(conn):
                 conn.send(" Le mot de passe doit avoir au moins 8 caractères, inclure au moins une lettre et au moins un chiffre.\n".encode())
                 conn.send("Entrez votre mot de passe : \n".encode())
                 mot_de_passe = conn.recv(1024).decode()
+                conn.send(f"Vous avez rentrer le mot_de_passe :{mot_de_passe}.\n".encode())
 
                 while not is_valid_mot_de_passe(mot_de_passe):
                     conn.send("Format de mot de passe invalide. Veuillez réessayer.\n".encode())
                     conn.send("Entrez votre mot de passe : \n".encode())
                     mot_de_passe = conn.recv(1024).decode()
+                    conn.send(f"Vous avez rentrer le mot_de_passe :{mot_de_passe}.\n".encode())
+
 
                 # Ajouter la vérification des identifiants dans la base de données
                 if user_exists(identifiant):
