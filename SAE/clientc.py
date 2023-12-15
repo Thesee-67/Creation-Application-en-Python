@@ -4,11 +4,92 @@ from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 import socket
 from PyQt5.QtCore import QThread, pyqtSignal, Qt, QMutex, QMutexLocker, QWaitCondition, QMetaObject
+import re
+import time
 
+        
 class MessageSignal(QObject):
     message_received = pyqtSignal(str)
     error_occurred = pyqtSignal(str)
 
+class ConnectionDialog(QDialog):
+    def __init__(self, parent=None):
+        super(ConnectionDialog, self).__init__(parent)
+
+        self.setWindowTitle("Connexion au Serveur")
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #2C3E50;
+            }
+            QLabel {
+                color: white;
+            }
+            QLineEdit {
+                background-color: #34495E;
+                color: white;
+            }
+            QPushButton {
+                background-color: black;
+                color: white;
+                padding: 5px;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: black;
+            }
+        """)
+
+        self.resize(400, 200)  # Ajuster la taille de la fenêtre
+
+        layout = QVBoxLayout(self)
+
+        label_ip = QLabel("Adresse IP du Client:")
+        label_ip.setStyleSheet("color: white;")
+        self.ip_entry = QLineEdit(self)
+        self.ip_entry.setPlaceholderText("Entrez l'adresse IP")
+
+        label_port = QLabel("Port du Client:")
+        label_port.setStyleSheet("color: white;")
+        self.port_entry = QLineEdit(self)
+        self.port_entry.setPlaceholderText("Entrez le port")
+
+        self.connect_button = QPushButton("Se Connecter", self)
+        self.connect_button.clicked.connect(self.accept)
+
+        layout.addWidget(label_ip)
+        layout.addWidget(self.ip_entry)
+        layout.addWidget(label_port)
+        layout.addWidget(self.port_entry)
+        layout.addWidget(self.connect_button)
+
+    def is_valid_ip(self, host):
+        # Utilisez une expression régulière pour valider le format de l'adresse IP
+        ip_pattern = re.compile(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$')
+        return bool(ip_pattern.match(host))
+    
+    def is_valid_port(self, port_text):
+        if not port_text.isdigit():
+            return False
+
+        port = int(port_text)
+        return 0 < port < 65536  # Le port doit être un entier entre 1 et 65535
+    
+    def get_connection_info(self):
+        ip = self.ip_entry.text()
+        port_text = self.port_entry.text()
+
+        # Valider le format de l'adresse IP
+        if not self.is_valid_ip(ip):
+            return None, None
+
+        # Valider le format du port
+        if not self.is_valid_port(port_text):
+            return None, None
+
+        port = int(port_text)
+        return ip, port
+
+    
 class ClientThread(QThread):
     def __init__(self, client_socket, message_signal, flag, wait_condition, mutex):
         super().__init__()
@@ -38,18 +119,6 @@ class ClientThread(QThread):
                 self.wait_condition.wakeAll()
 
             self.client_socket.close()  # Fermer la socket
-
-    def show_error_dialog(self, error_message):
-        self.flag[0] = False
-        self.client_socket.close()
-
-        # Utiliser QMetaObject.invokeMethod pour demander au thread principal d'afficher le message d'erreur
-        QMetaObject.invokeMethod(self, "_show_error_dialog", Qt.QueuedConnection, Q_ARG(str, error_message))
-
-    @pyqtSlot(str)
-    def _show_error_dialog(self, error_message):
-        # Afficher un message d'erreur depuis le thread principal
-        QMessageBox.critical(None, "Erreur", error_message)
 
 class TopicDialog(QDialog):
     def __init__(self, options, parent=None):
@@ -98,86 +167,14 @@ class TopicDialog(QDialog):
     def selectedTopic(self):
         return self.comboBox.currentText()
 
-
-class ProfileDialog(QDialog):
-    def __init__(self, parent=None):
-        super(ProfileDialog, self).__init__(parent)
-
-        self.setWindowTitle("Créer un Profil")
-        self.setStyleSheet("""
-            QDialog {
-                background-color: #2C3E50;
-            }
-            QLabel {
-                color: white;
-            }
-            QLineEdit {
-                background-color: #34495E;
-                color: white;
-            }
-            QPushButton {
-                background-color: black;
-                color: white;
-                padding: 5px;
-                border-radius: 5px;
-            }
-            QPushButton:hover {
-                background-color: black;
-            }
-        """)
-
-        layout = QVBoxLayout(self)
-
-        label = QLabel("Bienvenue ! Veuillez compléter votre profil.")
-        label.setStyleSheet("color: white;")
-
-        self.username_entry = QLineEdit(self)
-        self.username_entry.setPlaceholderText("Entrez votre nom d'utilisateur")
-
-        self.nom_entry = QLineEdit(self)
-        self.nom_entry.setPlaceholderText("Entrez votre nom")
-
-        self.prenom_entry = QLineEdit(self)
-        self.prenom_entry.setPlaceholderText("Entrez votre prénom")
-
-        self.identifiant_entry = QLineEdit(self)
-        self.identifiant_entry.setPlaceholderText("Entrez votre identifiant")
-
-        self.mot_de_passe_entry = QLineEdit(self)
-        self.mot_de_passe_entry.setPlaceholderText("Entrez votre mot de passe")
-        self.mot_de_passe_entry.setEchoMode(QLineEdit.Password)
-
-        self.create_button = QPushButton("Créer le Profil", self)
-        self.create_button.clicked.connect(self.create_profile)
-
-        layout.addWidget(label)
-        layout.addWidget(self.username_entry)
-        layout.addWidget(self.nom_entry)
-        layout.addWidget(self.prenom_entry)
-        layout.addWidget(self.identifiant_entry)
-        layout.addWidget(self.mot_de_passe_entry)
-        layout.addWidget(self.create_button)
-
-    def create_profile(self):
-        username = self.username_entry.text()
-        nom = self.nom_entry.text()
-        prenom = self.prenom_entry.text()
-        identifiant = self.identifiant_entry.text()
-        mot_de_passe = self.mot_de_passe_entry.text()
-
-        if username and nom and prenom and identifiant and mot_de_passe:
-            profile_message = f"create_profile:{username}:{nom}:{prenom}:{identifiant}:{mot_de_passe}"
-            self.accept()
-            self.parent().client_socket.send(profile_message.encode())
-        else:
-            QMessageBox.warning(self, "Erreur", "Veuillez remplir tous les champs.")
-
 class ClientGUI(QMainWindow):
     def __init__(self):
         super().__init__()
 
         self.setWindowTitle("GuiGui TChat")
         self.setGeometry(100, 100, 600, 400)
+        self.showMaximized()  # Maximiser la fenêtre principale
+
 
         # Ajout de l'en-tête avec le titre et les informations sur l'application
         header_label = QLabel("<h1 style='color: white;'>GUIGUI Tchat Compagnie</h1>"
@@ -230,15 +227,76 @@ class ClientGUI(QMainWindow):
         self.connect_to_server()
 
     def connect_to_server(self):
-        host = "127.0.0.2"
-        port = 10000
+        while True:
+            connection_dialog = ConnectionDialog(self)
+            result = connection_dialog.exec_()
 
+            if result != QDialog.Accepted:
+                # L'utilisateur a appuyé sur "Annuler" ou fermé la fenêtre, quitter la boucle
+                break
+
+            host, port = connection_dialog.get_connection_info()
+
+            # Valider l'adresse IP et le port
+            if host is None or port is None:
+                QMessageBox.warning(self, "Erreur", "Adresse IP ou port invalide. Veuillez réessayer.")
+                continue  # Afficher à nouveau la boîte de dialogue en cas d'erreur
+            elif not self.valid_ip(host, port):
+                QMessageBox.warning(self, "Erreur", "Adresse IP ou port invalide. Veuillez réessayer.")
+                continue  # Afficher à nouveau la boîte de dialogue en cas d'erreur
+
+            try:
+                self.client_socket.connect((host, port))
+                self.receive_thread.start()
+                break  # Sortir de la boucle si la connexion réussit
+
+            except Exception as e:
+                error_message = f"Impossible de se connecter au serveur : {e}"
+                self.show_error_dialog(error_message)
+
+    def valid_ip(self, ip, port_text):
         try:
-            self.client_socket.connect((host, port))
-            self.receive_thread.start()
+            # Valider le format de l'adresse IP
+            socket.inet_pton(socket.AF_INET, ip)
 
-        except Exception as e:
-            self.show_error_dialog(f"Impossible de se connecter au serveur : {e}")
+            # Valider le port
+            if not str(port_text).isdigit():
+                return False
+
+            port = int(port_text)
+
+            # Tester la connexion avec l'adresse IP et le port
+            test_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            test_socket.settimeout(1)  # Temps d'attente pour la connexion
+            test_socket.connect((ip, port))
+            test_socket.close()
+
+            return True
+
+        except (socket.error, ValueError):
+            return False
+
+        
+    def valid_port(self, port):
+        try:
+            port = int(port)
+            return 0 < port < 65536  # Le port doit être un entier entre 1 et 65535
+        except ValueError:
+            return False
+    
+
+    def show_error_dialog(self, error_message):
+        self.flag[0] = False
+        self.client_socket.close()
+
+        # Utiliser QMetaObject.invokeMethod pour demander au thread principal d'afficher le message d'erreur
+        QMetaObject.invokeMethod(self, "_show_error_dialog", Qt.QueuedConnection, Q_ARG(str, error_message))
+
+    @pyqtSlot(str)
+    def _show_error_dialog(self, error_message):
+        # Afficher un message d'erreur depuis le thread principal
+        QMessageBox.critical(None, "Erreur", error_message)
+
 
     def handle_message(self, message):
         # Gérer le message de profil
