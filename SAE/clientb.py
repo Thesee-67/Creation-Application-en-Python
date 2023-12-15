@@ -320,7 +320,7 @@ class ClientGUI(QMainWindow):
         self.connect_to_server()
 
     def connect_to_server(self):
-        progress_dialog = None  # Déclarer la variable en dehors de la boucle
+        self.progress_dialog = None  # Déclarer la variable comme un attribut de la classe
 
         while True:
             connection_dialog = ConnectionDialog(self)
@@ -341,19 +341,19 @@ class ClientGUI(QMainWindow):
                 ip_validation_thread.start()
 
                 # Afficher une boîte de progression pendant la vérification
-                progress_dialog = QProgressDialog("Vérification en cours...", None, 0, 0, self)
-                progress_dialog.setWindowModality(Qt.WindowModal)
-                progress_dialog.show()
+                self.progress_dialog = QProgressDialog("Vérification en cours...", None, 0, 0, self)
+                self.progress_dialog.setWindowModality(Qt.WindowModal)
+                self.progress_dialog.show()
 
             else:
                 # La validation a échoué, afficher un message si nécessaire
                 continue  # Afficher à nouveau la boîte de dialogue en cas d'erreur
 
     def handle_ip_validation_result(self, is_valid):
-        global progress_dialog  # Utiliser la variable globale
-        progress_dialog.close()  # Fermer la boîte de progression
+        self.progress_dialog.close()  # Fermer la boîte de progression
         if not is_valid:
             QMessageBox.warning(self, "Erreur", "Adresse IP invalide. Veuillez réessayer.")
+
 
         
     def valid_port(self, port):
