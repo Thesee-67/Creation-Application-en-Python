@@ -4,6 +4,9 @@ import mysql.connector
 import re
 from datetime import datetime, timedelta 
 import logging
+import json
+import time
+from threading import Thread
 
 
 # Configuration de la base de données
@@ -15,6 +18,23 @@ db_config = {
 }
 
 logging.basicConfig(filename='SAE\Log_Server\server.log', level=logging.ERROR)
+
+def execute_query(query, values=None):
+    connection = mysql.connector.connect(**db_config)
+    cursor = connection.cursor()
+
+    try:
+        if values:
+            cursor.execute(query, values)
+        else:
+            cursor.execute(query)
+
+        connection.commit()
+    except Exception as e:
+        print(f"Erreur lors de l'exécution de la requête : {e}")
+    finally:
+        cursor.close()
+        connection.close()
 
 def get_banned_clients():
     try:
@@ -311,6 +331,17 @@ def is_valid_email(email):
     email_pattern = re.compile(r'^[\w\.-]+@[a-zA-Z\d\.-]+\.[a-zA-Z]{2,}$')
     return bool(re.match(email_pattern, email))
 
+def update_user_status(identifiant, status):
+    connection = mysql.connector.connect(**db_config)
+    cursor = connection.cursor()
+
+    # Mettre à jour le statut de connexion de l'utilisateur
+    cursor.execute("UPDATE utilisateurs SET statut = %s WHERE identifiant = %s", (status, identifiant))
+    connection.commit()
+
+    cursor.close()
+    connection.close()
+
 def check_user_credentials(identifiant, mot_de_passe):
     connection = mysql.connector.connect(**db_config)
     cursor = connection.cursor()
@@ -318,6 +349,9 @@ def check_user_credentials(identifiant, mot_de_passe):
     # Vérifier si l'identifiant et le mot de passe correspondent à un utilisateur dans la base de données
     cursor.execute("SELECT id FROM utilisateurs WHERE identifiant = %s AND mot_de_passe = %s", (identifiant, mot_de_passe))
     result = cursor.fetchone()
+
+    if result is not None:
+        update_user_status(identifiant, 1)
 
     cursor.close()
     connection.close()
@@ -373,8 +407,8 @@ def insert_user_profile(nom, prenom, adresse_mail, identifiant, mot_de_passe, ad
 
     try:
         # Insérer le profil utilisateur dans la base de données
-        cursor.execute("INSERT INTO utilisateurs (nom, prenom, adresse_mail, identifiant, mot_de_passe, adresse_ip) VALUES (%s, %s, %s, %s, %s, %s)",
-               (nom, prenom, adresse_mail, identifiant, mot_de_passe, adresse_ip))
+        cursor.execute("INSERT INTO utilisateurs (nom, prenom, adresse_mail, identifiant, mot_de_passe, adresse_ip, statut) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+               (nom, prenom, adresse_mail, identifiant, mot_de_passe, adresse_ip, 1))
         connection.commit()
         print(f"Inserted user profile for {identifiant} successfully.")
     except Exception as e:
@@ -450,7 +484,6 @@ def is_user_authorized(identifiant, nouveau_topic):
 
     return result is not None
 
-
 def broadcast_message(message, clients, topic, identifiant):
     for client_conn, client_topic in clients:
         if client_topic == topic:
@@ -482,6 +515,43 @@ def is_valid_mot_de_passe(mot_de_passe):
 
 def is_valid_identifiant(identifiant):
     return bool(re.match(r'^[A-Za-z0-9_-]{4,}$', identifiant))
+
+def send_user_info(clients, flag_lock):
+    while True:
+        with flag_lock:
+            # Récupérer tous les identifiants et leur statut depuis la base de données
+            connection = mysql.connector.connect(**db_config)
+            cursor = connection.cursor(dictionary=True)
+            cursor.execute("SELECT identifiant, statut FROM utilisateurs")
+            users_info = cursor.fetchall()
+            connection.close()
+
+            # Convertir les résultats en une liste de tuples (identifiant, statut)
+            users_info = [(user_info['identifiant'], user_info['statut']) for user_info in users_info]
+
+        # Vérifier si la liste des utilisateurs est vide
+        if not users_info:
+            time.sleep(5)
+            continue
+
+        users_info_str = json.dumps(users_info)
+
+        # Filtrer les clients actifs avant de les envoyer
+        active_clients = [(client, identifiant) for client, identifiant in clients if client.fileno() != -1]
+
+        for client, _ in active_clients:
+            try:
+                client.send(f"users:{users_info_str}".encode())
+            except Exception as e:
+                print(f"Erreur lors de l'envoi des informations à {client}: {e}")
+
+        time.sleep(5)
+
+
+
+def start_send_user_info(clients, flag_lock):
+    send_user_info(clients, flag_lock)
+
 def create_user_profile(conn):
     conn.send("Bienvenue !\n".encode())
 
@@ -523,6 +593,8 @@ def create_user_profile(conn):
                 # Ajouter la vérification des identifiants dans la base de données
                 if check_user_credentials(identifiant, mot_de_passe):
                     conn.send("Authentification réussie ! Bienvenue.\n".encode())
+                    send_user_info_thread = Thread(target=start_send_user_info, args=(clients, flag_lock))
+                    send_user_info_thread.start()
                     break
                 else:
                     conn.send("Identifiants incorrects. Réessayez.\n".encode())
@@ -613,6 +685,8 @@ def create_user_profile(conn):
                       f"Adresse e-mail: {adresse_mail}\n"
                       f"Identifiant: {identifiant}\n".encode())
                     save_authorization(identifiant, "Général")
+                    send_user_info_thread = Thread(target=start_send_user_info, args=(clients, flag_lock))
+                    send_user_info_thread.start()
                     conn.send(f"Bienvenue {identifiant}!\n".encode())
                     break
             break  
@@ -678,8 +752,6 @@ def handle_client(conn, address, flag_lock, flag, clients):
                     # Ajouter la demande en attente
                         demandes_en_attente[identifiant] = nouveau_topic
                         conn.send(f"Votre demande de rejoindre {nouveau_topic} est en attente d'approbation.".encode())
-
-
             elif message.lower() == "bye":
                 topic = dico3[identifiant]
                 print(f"Client {address} a quitté le salon {topic}.")
@@ -698,6 +770,17 @@ def handle_client(conn, address, flag_lock, flag, clients):
     except ConnectionResetError:
         print(f"La connexion avec {address} a été réinitialisée par le client.")
         logging.error(f"La connexion avec {address} a été réinitialisée par le client.")
+
+        identifiant = dico.get(conn)
+        if identifiant is None:
+            # Gérer le cas où la connexion n'est plus dans le dictionnaire
+            print("La connexion n'est plus dans le dictionnaire.")
+            return
+        else:
+            query = "UPDATE utilisateurs SET statut = 0 WHERE identifiant = %s"
+            values = (identifiant,)
+            execute_query(query, values)
+
     except Exception as e:
         print(f"Une exception s'est produite avec {address} : {e}")
         logging.error(f"Une exception s'est produite avec {address} : {e}")
