@@ -547,8 +547,6 @@ def send_user_info(clients, flag_lock):
 
         time.sleep(5)
 
-
-
 def start_send_user_info(clients, flag_lock):
     send_user_info(clients, flag_lock)
 
