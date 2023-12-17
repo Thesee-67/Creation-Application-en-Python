@@ -335,8 +335,6 @@ class ClientGUI(QMainWindow):
 
     @pyqtSlot(list)
     def update_users_list_widget(self, users_info):
-        print("Informations reçues du serveur:", users_info)  # Ajoutez cette ligne pour déboguer
-
         self.users_list_widget.clear()
 
         for user, status in users_info:
@@ -349,9 +347,7 @@ class ClientGUI(QMainWindow):
             username = item.text().split(" - ")[0]
             status = "Connecté" if any((user, stat) == (username, 1) for user, stat in users_info) else "Déconnecté"
             item.setText(f"{username} - {status}")
-            print(status)
 
-        print("Statut mis à jour pour tous les utilisateurs.")  # Ajoutez cette ligne pour déboguer
 
 
     @pyqtSlot(str)
@@ -359,7 +355,6 @@ class ClientGUI(QMainWindow):
         if message.startswith("users:"):
             # Mettez à jour la liste des utilisateurs connectés
             users_info = json.loads(message[6:])  # Pour extraire la partie JSON du message
-            print(f"Utilisateurs reçus : {users_info}")  # Ajout d'un message de débogage
             self.update_users_list_widget(users_info)
         else:
             # Gérer le message de profil

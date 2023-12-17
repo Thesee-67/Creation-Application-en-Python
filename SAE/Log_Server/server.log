@@ -149,3 +149,14 @@ ERROR:root:Une exception s'est produite avec ('127.0.0.1', 60672) : [WinError 10
 ERROR:root:Une exception s'est produite avec ('127.0.0.1', 60688) : [WinError 10053] Une connexion établie a été abandonnée par un logiciel de votre ordinateur hôte
 ERROR:root:La connexion avec ('127.0.0.1', 60673) a été réinitialisée par le client.
 ERROR:root:La connexion avec ('127.0.0.1', 60689) a été réinitialisée par le client.
+ERROR:root:Une exception s'est produite avec ('127.0.0.1', 61037) : [WinError 10053] Une connexion établie a été abandonnée par un logiciel de votre ordinateur hôte
+ERROR:root:Une exception s'est produite avec ('127.0.0.1', 61099) : [WinError 10053] Une connexion établie a été abandonnée par un logiciel de votre ordinateur hôte
+ERROR:root:Une exception s'est produite avec ('127.0.0.1', 61157) : [WinError 10053] Une connexion établie a été abandonnée par un logiciel de votre ordinateur hôte
+ERROR:root:La connexion avec ('127.0.0.1', 61158) a été réinitialisée par le client.
+ERROR:root:Une exception s'est produite avec ('127.0.0.1', 61416) : [WinError 10053] Une connexion établie a été abandonnée par un logiciel de votre ordinateur hôte
+ERROR:root:Une exception s'est produite : name 'conn' is not defined
+ERROR:root:Une exception s'est produite : name 'conn' is not defined
+ERROR:root:Une exception s'est produite : name 'conn' is not defined
+ERROR:root:Une exception s'est produite : name 'conn' is not defined
+ERROR:root:Une exception s'est produite avec ('127.0.0.1', 61885) : [WinError 10053] Une connexion établie a été abandonnée par un logiciel de votre ordinateur hôte
+ERROR:root:La connexion avec ('127.0.0.1', 61886) a été réinitialisée par le client.
