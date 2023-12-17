@@ -233,6 +233,7 @@ class ClientGUI(QMainWindow):
 
             if result != QDialog.Accepted:
                 # L'utilisateur a appuyé sur "Annuler" ou fermé la fenêtre, quitter la boucle
+                QMessageBox.information(self, "Information", "Veuillez fermer l'application.")
                 break
 
             host, port = connection_dialog.get_connection_info()
@@ -362,17 +363,29 @@ class ClientGUI(QMainWindow):
         info_box.exec_()
 
     def closeEvent(self, event):
-        # Redéfinir la méthode closeEvent pour gérer la fermeture de la fenêtre
-        self.flag[0] = False  # Arrêter le thread de réception
-        self.client_socket.close()  # Fermer la socket
+        # Demander confirmation à l'utilisateur
+        reply = QMessageBox.question(self, 'Confirmation', 'Êtes-vous sûr de vouloir quitter?', 
+                                    QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
 
-        # Attendre que le thread de réception se termine
-        with QMutexLocker(self.mutex):  # Utilisez QMutexLocker pour garantir la libération du mutex
-            self.wait_condition.wakeAll()
-        self.receive_thread.quit()  # Ajouter cette ligne pour quitter le thread de manière propre
-        self.receive_thread.wait()  # Attendre que le thread de réception se termine
+        if reply == QMessageBox.Yes:
+            # Utilisateur a confirmé la fermeture
 
-        event.accept()  # Accepter la fermeture de la fenêtre
+            # Arrêter le thread de réception
+            self.flag[0] = False
+            self.client_socket.close()  # Fermer la socket
+
+            # Attendre que le thread de réception se termine
+            with QMutexLocker(self.mutex):  # Utilisez QMutexLocker pour garantir la libération du mutex
+                self.wait_condition.wakeAll()
+
+            self.receive_thread.finished.connect(self.receive_thread.quit)  # Connecter le signal finished à la méthode quit
+            self.receive_thread.quit()  # Ajouter cette ligne pour quitter le thread de manière propre
+            self.receive_thread.wait()  # Attendre que le thread de réception se termine
+
+            event.accept()  # Accepter la fermeture de la fenêtre
+        else:
+            # Utilisateur a annulé la fermeture
+            event.ignore()  # Ignorer la fermeture de la fenêtre
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
