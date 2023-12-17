@@ -710,7 +710,7 @@ def server_shell(flag_lock, flag, clients,):
         return
 
     while flag[0]:
-        commande = input("Entrez 'kill' pour arrêter le serveur : ")
+        commande = input("Pour voir les commandes Entrez 'showcommande' ou entrez la commande que vous souhaiter utiliser: ")
         if commande.lower() == "kill":
             with flag_lock:
                 flag[0] = False
@@ -807,9 +807,21 @@ def server_shell(flag_lock, flag, clients,):
                 unkick(identifiant)
             else:
                 print("Commande incorrecte. Utilisez 'unkick@identifiant'.")
+        elif commande.lower() == "showcommande":
+            print("Commandes disponibles :")
+            print("- kill : Arrêter le serveur.")
+            print("- showdemande : Afficher les demandes de changement de channel en attente.")
+            print("- accept@identifiant : Accepter une demande de changement de channel.")
+            print("- refuser@identifiant : Refuser une demande de changement de channel.")
+            print("- ban@identifiant : Bannir un client.")
+            print("- kick@identifiant : Appliquer une sanction kick (bannir pendant 1h).")
+            print("- showban : Afficher la liste des clients bannis.")
+            print("- showkick : Afficher la liste des clients kickés.")
+            print("- unban@identifiant : Lever le ban d'un client.")
+            print("- unkick@identifiant : Lever la sanction kick d'un client.")
+            print("- showcommande : Afficher toutes les commandes disponibles.")
         else:
-            print("Commande non reconnue. Utilisez 'kill', 'showdemande' ou 'accept@identifiant'.")
-
+            print("Commande non reconnue. Pour voir les commandes utilisez 'showcommande' .")
 
 if __name__ == '__main__':
     port = 10000
