@@ -6,11 +6,14 @@ import socket
 from PyQt5.QtCore import QThread, pyqtSignal, Qt, QMutex, QMutexLocker, QWaitCondition, QMetaObject
 import re
 import time
+import json
 
         
 class MessageSignal(QObject):
     message_received = pyqtSignal(str)
     error_occurred = pyqtSignal(str)
+    update_users_list = pyqtSignal(list)  # Ajout du signal pour la mise à jour de la liste des utilisateurs
+
 
 class ConnectionDialog(QDialog):
     def __init__(self, parent=None):
@@ -89,7 +92,6 @@ class ConnectionDialog(QDialog):
         port = int(port_text)
         return ip, port
 
-    
 class ClientThread(QThread):
     def __init__(self, client_socket, message_signal, flag, wait_condition, mutex):
         super().__init__()
@@ -105,7 +107,13 @@ class ClientThread(QThread):
                 reply = self.client_socket.recv(1024).decode()
                 if not reply:
                     break  # Arrêter la boucle si la connexion est fermée
-                self.signal.message_received.emit(reply)
+                if reply.startswith("users:"):
+                    # Si le message commence par "users:", c'est une mise à jour des utilisateurs
+                    users_info = json.loads(reply[6:])  # Pour extraire la partie JSON du message
+                    self.signal.update_users_list.emit(users_info)
+                else:
+                    # Sinon, c'est un message normal
+                    self.signal.message_received.emit(reply)
 
         except (socket.error, socket.timeout) as e:
             self.signal.error_occurred.emit(f"Erreur de connexion : {e}")
@@ -119,6 +127,7 @@ class ClientThread(QThread):
                 self.wait_condition.wakeAll()
 
             self.client_socket.close()  # Fermer la socket
+
 
 class TopicDialog(QDialog):
     def __init__(self, options, parent=None):
@@ -173,18 +182,16 @@ class ClientGUI(QMainWindow):
 
         self.setWindowTitle("GuiGui TChat")
         self.setGeometry(100, 100, 600, 400)
-        self.showMaximized()  # Maximiser la fenêtre principale
+        self.showMaximized()
+        self.central_widget = QWidget(self)
+        self.setCentralWidget(self.central_widget)
 
-
-        # Ajout de l'en-tête avec le titre et les informations sur l'application
         header_label = QLabel("<h1 style='color: white;'>GUIGUI Tchat Compagnie</h1>"
                               "<p style='color: white;'>Une application de messagerie conviviale.</p>", self)
         header_label.setAlignment(Qt.AlignCenter)
         header_label.setStyleSheet("background-color: #3498db;")
 
-        self.central_widget = QWidget(self)
-        self.setCentralWidget(self.central_widget)
-
+        # Zone principale du chat
         self.chat_text = QTextEdit(self)
         self.chat_text.setReadOnly(True)
         self.chat_text.setStyleSheet("background-color: #F0F0F0; color: black;")
@@ -199,12 +206,13 @@ class ClientGUI(QMainWindow):
         self.change_button.clicked.connect(self.change_topic)
 
         info_button = QPushButton(self)
-        info_button.setIcon(QIcon("SAE\Image\Question.png"))  # Remplacez "information_icon.png" par le chemin de votre icône d'information
+        info_button.setIcon(QIcon("SAE\Image\Question.png"))
         info_button.clicked.connect(self.show_instructions)
 
-        top_layout = QVBoxLayout()
-        top_layout.addWidget(header_label)  # Ajout de l'en-tête
-        top_layout.addWidget(self.chat_text)
+        # Layout pour la zone principale du chat
+        chat_layout = QVBoxLayout()
+        chat_layout.addWidget(header_label)
+        chat_layout.addWidget(self.chat_text)
 
         bottom_layout = QHBoxLayout()
         bottom_layout.addWidget(self.message_entry)
@@ -212,18 +220,41 @@ class ClientGUI(QMainWindow):
         bottom_layout.addWidget(self.change_button)
         bottom_layout.addWidget(info_button)
 
-        layout = QVBoxLayout(self.central_widget)
-        layout.addLayout(top_layout)
-        layout.addLayout(bottom_layout)
+        chat_layout.addLayout(bottom_layout)
+
+        profil_button = QPushButton("Profil", self)
+        profil_button.clicked.connect(self.afficher_profil)  # Remplacez 'afficher_profil' par la fonction appropriée
+
+        # Créer une étiquette pour le titre
+        titre_label = QLabel("Clients Connectés", self)
+        titre_label.setStyleSheet("background-color: #3498db; color: white;")
+        titre_label.setAlignment(Qt.AlignCenter)
+
+        # Liste des utilisateurs
+        self.users_list_widget = QListWidget(self)
+        self.users_list_widget.setStyleSheet("background-color: #F0F0F0;")
+        self.users_list_widget.setMinimumWidth(150)
+        self.users_list_widget.setMaximumWidth(200)
+        self.users_list_widget.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+
+        # Layout pour la liste des utilisateurs
+        users_layout = QVBoxLayout()
+        users_layout.addWidget(profil_button)
+        users_layout.addWidget(titre_label)
+        users_layout.addWidget(self.users_list_widget)
+
+        # Layout principal pour la fenêtre
+        main_layout = QHBoxLayout(self.central_widget)
+        main_layout.addLayout(chat_layout)
+        main_layout.addLayout(users_layout)
 
         self.mutex = QMutex()  # Créez un objet QMutex
-
         self.client_socket = socket.socket()
         self.flag = [True]
         self.wait_condition = QWaitCondition()  # Condition d'attente pour le thread
         self.receive_thread = ClientThread(self.client_socket, MessageSignal(), self.flag, self.wait_condition, self.mutex)
         self.receive_thread.signal.message_received.connect(self.handle_message)
-
+        self.receive_thread.signal.update_users_list.connect(self.update_users_list_widget)
         self.connect_to_server()
 
     def connect_to_server(self):
@@ -254,6 +285,10 @@ class ClientGUI(QMainWindow):
             except Exception as e:
                 error_message = f"Impossible de se connecter au serveur : {e}"
                 self.show_error_dialog(error_message)
+
+    def afficher_profil():
+
+        return
 
     def valid_ip(self, ip, port_text):
         try:
@@ -298,17 +333,35 @@ class ClientGUI(QMainWindow):
         # Afficher un message d'erreur depuis le thread principal
         QMessageBox.critical(None, "Erreur", error_message)
 
+    @pyqtSlot(list)
+    def update_users_list_widget(self, users_info):
+        self.users_list_widget.clear()
 
+        for user, status in users_info:
+            item = QListWidgetItem(f"{user} - {('Connecté' if status == 1 else 'Déconnecté')}")
+            self.users_list_widget.addItem(item)
+
+    @pyqtSlot(str)
     def handle_message(self, message):
-        # Gérer le message de profil
-        if message.lower().startswith("profile:"):
-            _, profile_info = message.split(":", 1)
-            QMessageBox.information(self, "Profil", profile_info)
+        print(f"Message reçu dans handle_message : {message}")  # Ajout d'un message de débogage
+
+        if message.startswith("users:"):
+            # Mettez à jour la liste des utilisateurs connectés
+            users_info = json.loads(message[6:])  # Pour extraire la partie JSON du message
+            print(f"Utilisateurs reçus : {users_info}")  # Ajout d'un message de débogage
+            self.update_users_list_widget(users_info)
         else:
-            self.chat_text.append(message)
-            cursor = self.chat_text.textCursor()
-            cursor.movePosition(QTextCursor.End)
-            self.chat_text.setTextCursor(cursor)
+            # Gérer le message de profil
+            if message.lower().startswith("profile:"):
+                _, profile_info = message.split(":", 1)
+                QMessageBox.information(self, "Profil", profile_info)
+            else:
+                self.chat_text.append(message)
+                cursor = self.chat_text.textCursor()
+                cursor.movePosition(QTextCursor.End)
+                self.chat_text.setTextCursor(cursor)
+
+
 
     def send_message(self):
         message = self.message_entry.text()
@@ -392,3 +445,5 @@ if __name__ == '__main__':
     client_gui = ClientGUI()
     client_gui.show()
     sys.exit(app.exec_())
+
+

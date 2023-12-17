@@ -222,7 +222,6 @@ class ClientGUI(QMainWindow):
 
         chat_layout.addLayout(bottom_layout)
 
-
         profil_button = QPushButton("Profil", self)
         profil_button.clicked.connect(self.afficher_profil)  # Remplacez 'afficher_profil' par la fonction appropriée
 
@@ -336,15 +335,11 @@ class ClientGUI(QMainWindow):
 
     @pyqtSlot(list)
     def update_users_list_widget(self, users_info):
-        # Efface la liste des utilisateurs
         self.users_list_widget.clear()
 
-        # Ajoute chaque utilisateur à la liste
-        for user_info in users_info:
-            item = QListWidgetItem(f"{user_info}")
+        for user, status in users_info:
+            item = QListWidgetItem(f"{user} - {('Connecté' if status == 1 else 'Déconnecté')}")
             self.users_list_widget.addItem(item)
-
-
 
     @pyqtSlot(str)
     def handle_message(self, message):
@@ -354,7 +349,7 @@ class ClientGUI(QMainWindow):
             # Mettez à jour la liste des utilisateurs connectés
             users_info = json.loads(message[6:])  # Pour extraire la partie JSON du message
             print(f"Utilisateurs reçus : {users_info}")  # Ajout d'un message de débogage
-            self.update_users_list(users_info)
+            self.update_users_list_widget(users_info)
         else:
             # Gérer le message de profil
             if message.lower().startswith("profile:"):
@@ -365,6 +360,7 @@ class ClientGUI(QMainWindow):
                 cursor = self.chat_text.textCursor()
                 cursor.movePosition(QTextCursor.End)
                 self.chat_text.setTextCursor(cursor)
+
 
 
     def send_message(self):
