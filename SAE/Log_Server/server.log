@@ -192,3 +192,35 @@ ERROR:root:Une exception s'est produite avec ('127.0.0.1', 50296) : [WinError 10
 ERROR:root:La connexion avec ('127.0.0.1', 50297) a été réinitialisée par le client.
 ERROR:root:Une exception s'est produite avec ('127.0.0.1', 50390) : [WinError 10053] Une connexion établie a été abandonnée par un logiciel de votre ordinateur hôte
 ERROR:root:Une exception s'est produite avec ('127.0.0.1', 50507) : [WinError 10053] Une connexion établie a été abandonnée par un logiciel de votre ordinateur hôte
+ERROR:root:Une exception s'est produite avec ('127.0.0.1', 50467) : [WinError 10053] Une connexion établie a été abandonnée par un logiciel de votre ordinateur hôte
+ERROR:root:Une exception s'est produite avec ('127.0.0.1', 50468) : No result set to fetch from
+ERROR:root:Une exception s'est produite avec ('127.0.0.1', 50502) : [WinError 10053] Une connexion établie a été abandonnée par un logiciel de votre ordinateur hôte
+ERROR:root:Une exception s'est produite avec ('127.0.0.1', 50503) : No result set to fetch from
+ERROR:root:Une exception s'est produite avec ('127.0.0.1', 50538) : [WinError 10053] Une connexion établie a été abandonnée par un logiciel de votre ordinateur hôte
+ERROR:root:Une exception s'est produite avec ('127.0.0.1', 50539) : No result set to fetch from
+ERROR:root:Une exception s'est produite avec ('127.0.0.1', 50671) : [WinError 10053] Une connexion établie a été abandonnée par un logiciel de votre ordinateur hôte
+ERROR:root:Une exception s'est produite avec ('127.0.0.1', 50672) : No result set to fetch from
+ERROR:root:Une exception s'est produite avec ('127.0.0.1', 50736) : [WinError 10053] Une connexion établie a été abandonnée par un logiciel de votre ordinateur hôte
+ERROR:root:Une exception s'est produite avec ('127.0.0.1', 50737) : a bytes-like object is required, not 'str'
+ERROR:root:Une exception s'est produite avec ('127.0.0.1', 50868) : [WinError 10053] Une connexion établie a été abandonnée par un logiciel de votre ordinateur hôte
+ERROR:root:La connexion avec ('127.0.0.1', 50869) a été réinitialisée par le client.
+ERROR:root:Une exception s'est produite avec ('127.0.0.1', 51136) : [WinError 10053] Une connexion établie a été abandonnée par un logiciel de votre ordinateur hôte
+ERROR:root:La connexion avec ('127.0.0.1', 51137) a été réinitialisée par le client.
+ERROR:root:Une exception s'est produite avec ('127.0.0.1', 51190) : [WinError 10053] Une connexion établie a été abandonnée par un logiciel de votre ordinateur hôte
+ERROR:root:La connexion avec ('127.0.0.1', 51191) a été réinitialisée par le client.
+ERROR:root:Une exception s'est produite avec ('127.0.0.1', 51272) : [WinError 10053] Une connexion établie a été abandonnée par un logiciel de votre ordinateur hôte
+ERROR:root:La connexion avec ('127.0.0.1', 51273) a été réinitialisée par le client.
+ERROR:root:Une exception s'est produite avec ('127.0.0.1', 51453) : [WinError 10053] Une connexion établie a été abandonnée par un logiciel de votre ordinateur hôte
+ERROR:root:La connexion avec ('127.0.0.1', 51454) a été réinitialisée par le client.
+ERROR:root:Une exception s'est produite avec ('127.0.0.1', 51526) : [WinError 10053] Une connexion établie a été abandonnée par un logiciel de votre ordinateur hôte
+ERROR:root:La connexion avec ('127.0.0.1', 51527) a été réinitialisée par le client.
+ERROR:root:Une exception s'est produite avec ('127.0.0.1', 51624) : [WinError 10053] Une connexion établie a été abandonnée par un logiciel de votre ordinateur hôte
+ERROR:root:La connexion avec ('127.0.0.1', 51625) a été réinitialisée par le client.
+ERROR:root:Une exception s'est produite avec ('127.0.0.1', 52021) : [WinError 10053] Une connexion établie a été abandonnée par un logiciel de votre ordinateur hôte
+ERROR:root:La connexion avec ('127.0.0.1', 52022) a été réinitialisée par le client.
+ERROR:root:Une exception s'est produite avec ('127.0.0.1', 52072) : [WinError 10053] Une connexion établie a été abandonnée par un logiciel de votre ordinateur hôte
+ERROR:root:La connexion avec ('127.0.0.1', 52073) a été réinitialisée par le client.
+ERROR:root:Une exception s'est produite avec ('127.0.0.1', 52107) : [WinError 10053] Une connexion établie a été abandonnée par un logiciel de votre ordinateur hôte
+ERROR:root:La connexion avec ('127.0.0.1', 52108) a été réinitialisée par le client.
+ERROR:root:Une exception s'est produite avec ('127.0.0.1', 52174) : [WinError 10053] Une connexion établie a été abandonnée par un logiciel de votre ordinateur hôte
+ERROR:root:La connexion avec ('127.0.0.1', 52175) a été réinitialisée par le client.

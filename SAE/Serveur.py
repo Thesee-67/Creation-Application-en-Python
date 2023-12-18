@@ -276,6 +276,18 @@ def unkick(identifiant, flag_lock=None):
         if 'connection' in locals() and connection.is_connected():
             connection.close()
 
+def info_profile_database(identifiant):
+    connection = mysql.connector.connect(**db_config)
+    cursor = connection.cursor()
+    
+    cursor.execute("SELECT nom, prenom, identifiant, adresse_ip, adresse_mail FROM utilisateurs WHERE identifiant = %s", (identifiant,))
+    profile_info = cursor.fetchone()
+
+    cursor.close()
+    connection.close()
+
+    return profile_info
+
 
 def is_user_kicked(identifiant):
     # Vérifier si l'utilisateur est kické
@@ -751,6 +763,13 @@ def handle_client(conn, address, flag_lock, flag, clients):
                     # Ajouter la demande en attente
                         demandes_en_attente[identifiant] = nouveau_topic
                         conn.send(f"Votre demande de rejoindre {nouveau_topic} est en attente d'approbation.".encode())
+            elif message.startswith("profile:request"):
+                # Gérer la demande de profil
+                identifiant = dico[conn]
+                profile_info = info_profile_database(identifiant)
+                # Envoyer les informations de profil au client
+                profile_info_json = json.dumps(profile_info)
+                conn.send(f"profile:{profile_info_json}".encode())
             elif message.lower() == "bye":
                 topic = dico3[identifiant]
                 print(f"Client {address} a quitté le salon {topic}.")
