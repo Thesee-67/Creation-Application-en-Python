@@ -18,6 +18,8 @@ db_config = {
 }
 
 logging.basicConfig(filename='SAE\Log_Server\server.log', level=logging.ERROR)
+send_user_info_flag = threading.Event()
+
 
 def execute_query(query, values=None):
     connection = mysql.connector.connect(**db_config)
@@ -517,7 +519,7 @@ def is_valid_identifiant(identifiant):
     return bool(re.match(r'^[A-Za-z0-9_-]{4,}$', identifiant))
 
 def send_user_info(clients, flag_lock):
-    while True:
+    while not send_user_info_flag.is_set():
         with flag_lock:
             # Récupérer tous les identifiants et leur statut depuis la base de données
             connection = mysql.connector.connect(**db_config)
@@ -548,6 +550,9 @@ def send_user_info(clients, flag_lock):
         time.sleep(5)
 
 def start_send_user_info(clients, flag_lock):
+    global send_user_info_flag
+    send_user_info_flag = threading.Event()
+    send_user_info_flag.set()  # Mettez le drapeau à l'état "set" pour démarrer la boucle
     send_user_info(clients, flag_lock)
 
 def create_user_profile(conn):
@@ -591,8 +596,6 @@ def create_user_profile(conn):
                 # Ajouter la vérification des identifiants dans la base de données
                 if check_user_credentials(identifiant, mot_de_passe):
                     conn.send("Authentification réussie ! Bienvenue.\n".encode())
-                    send_user_info_thread = Thread(target=start_send_user_info, args=(clients, flag_lock))
-                    send_user_info_thread.start()
                     break
                 else:
                     conn.send("Identifiants incorrects. Réessayez.\n".encode())
@@ -683,8 +686,6 @@ def create_user_profile(conn):
                       f"Adresse e-mail: {adresse_mail}\n"
                       f"Identifiant: {identifiant}\n".encode())
                     save_authorization(identifiant, "Général")
-                    send_user_info_thread = Thread(target=start_send_user_info, args=(clients, flag_lock))
-                    send_user_info_thread.start()
                     conn.send(f"Bienvenue {identifiant}!\n".encode())
                     break
             break  
@@ -795,6 +796,7 @@ def server_shell(flag_lock, flag, clients,):
         if commande.lower() == "kill":
             with flag_lock:
                 flag[0] = False
+            send_user_info_flag.set()
             for client_conn, _ in clients:
                 try:
                     client_conn.send("Le serveur doit s'arrêter. Veuillez nous excuser pour la gêne occasionnée. Veuillez fermer l'application en appuyant sur la croix".encode())
@@ -926,6 +928,8 @@ if __name__ == '__main__':
     shell_thread = threading.Thread(target=server_shell, args=(flag_lock, flag, clients,))
     shell_thread.start()
 
+    send_user_info_thread = Thread(target=start_send_user_info, args=(clients, flag_lock))
+
     try:
         server_socket.settimeout(1.0)  # Définir une temporisation sur le socket
 
@@ -937,6 +941,16 @@ if __name__ == '__main__':
                 # Créer un thread pour gérer la connexion client
                 client_thread = threading.Thread(target=handle_client, args=(conn, address, flag_lock, flag, clients))
                 client_thread.start()
+                
+                with flag_lock:
+                # Ajouter le client à la liste des clients
+                    clients.append((conn, None))
+
+                # Démarrer la thread start_send_user_info si ce n'est pas déjà fait
+                if not send_user_info_thread.is_alive():
+                    send_user_info_thread = threading.Thread(target=send_user_info, args=(clients, flag_lock))
+                    send_user_info_thread.start()
+
 
             except socket.timeout:
                 # Cela permet au serveur de vérifier périodiquement si la commande "stop" a été donnée
@@ -952,5 +966,11 @@ if __name__ == '__main__':
         # Attendre que tous les threads clients se terminent avant de fermer le serveur
         for thread in client_threads:
             thread.join()
+
+        # Attendre que la thread start_send_user_info soit démarrée avant de la rejoindre
+        if send_user_info_thread.is_alive():
+            send_user_info_thread.join()
+
         shell_thread.join()  # Attendre que le thread du shell se termine
         server_socket.close()
+
