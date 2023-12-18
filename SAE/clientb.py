@@ -3,9 +3,7 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 import socket
-from PyQt5.QtCore import QThread, pyqtSignal, Qt, QMutex, QMutexLocker, QWaitCondition, QMetaObject
 import re
-import time
 import json
 
         
@@ -286,9 +284,76 @@ class ClientGUI(QMainWindow):
                 error_message = f"Impossible de se connecter au serveur : {e}"
                 self.show_error_dialog(error_message)
 
-    def afficher_profil():
+    def afficher_profil(self):
+        self.client_socket.send("profile:request".encode())
 
-        return
+    def format_profile_data(self, profile_data):
+        # Assurez-vous que la liste a au moins 5 éléments
+        if len(profile_data) >= 5:
+            # Les noms des champs
+            fields = ["Nom", "Prénom", "Identifiant","Adresse IP", "Adresse Email"]
+
+            # Créez un texte formaté en utilisant les noms de champ et les données de profil
+            formatted_text = "\n".join(f"{field} : {data}" for field, data in zip(fields, profile_data))
+
+            return formatted_text
+
+        # Si la liste n'a pas assez d'éléments, renvoyez une chaîne vide
+        return ""
+
+
+    def handle_profile_info(self, profile_info,):
+        # Assurez-vous que profile_info est une liste non vide
+        if profile_info and isinstance(profile_info, list):
+            # Formatez les données du profil
+            formatted_profile = self.format_profile_data(profile_info)
+
+            # Affichez les informations du profil dans une boîte de dialogue
+            QMessageBox.information(self, "Profil", formatted_profile)
+        else:
+            # Affichez un avertissement si les données du profil ne sont pas valides
+            QMessageBox.warning(self, "Avertissement", "Les données du profil ne sont pas valides.")
+
+    def show_custom_information(self, title, profile_info):
+        # Créer une instance de QMessageBox
+        msg_box = QMessageBox()
+
+        # Définir le titre et l'icône
+        msg_box.setWindowTitle(title)
+        msg_box.setIcon(QMessageBox.Information)
+
+        # Appliquer un style personnalisé à la QMessageBox
+        msg_box.setStyleSheet("""
+            QMessageBox {
+                background-color: #ECF0F1;
+                border: 2px solid #3498DB;
+            }
+            QLabel {
+                color: #2C3E50;
+            }
+            QPushButton {
+                background-color: #3498DB;
+                color: white;
+                padding: 5px;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: #2980B9;
+            }
+        """)
+
+        # Formater les données du profil
+        formatted_profile = self.format_profile_data(profile_info)
+
+        # Ajouter le texte à la boîte de dialogue
+        msg_box.setText(formatted_profile)
+
+        # Ajouter un bouton "OK" à la boîte de dialogue
+        msg_box.addButton(QMessageBox.Ok)
+
+        # Afficher la boîte de dialogue
+        msg_box.exec_()
+
 
     def valid_ip(self, ip, port_text):
         try:
@@ -348,24 +413,34 @@ class ClientGUI(QMainWindow):
             status = "Connecté" if any((user, stat) == (username, 1) for user, stat in users_info) else "Déconnecté"
             item.setText(f"{username} - {status}")
 
-
-
     @pyqtSlot(str)
     def handle_message(self, message):
         if message.startswith("users:"):
             # Mettez à jour la liste des utilisateurs connectés
             users_info = json.loads(message[6:])  # Pour extraire la partie JSON du message
             self.update_users_list_widget(users_info)
+        elif message.lower().startswith("profile:"):
+            _, profile_info = message.split(":", 1)
+            try:
+                # Essayez de décoder les données JSON du profil
+                profile_data = json.loads(profile_info)
+
+                # Assurez-vous que les données du profil sont une liste non vide
+                if isinstance(profile_data, list) and profile_data:
+                    self.handle_profile_info(profile_data)
+                else:
+                    # Affichez un avertissement si les données du profil ne sont pas valides
+                    QMessageBox.warning(self, "Avertissement", "Les données du profil ne sont pas valides.")
+            except json.JSONDecodeError:
+                # Affichez un avertissement si le JSON est mal formé
+                QMessageBox.warning(self, "Avertissement", "Le format JSON du profil est incorrect.")
         else:
-            # Gérer le message de profil
-            if message.lower().startswith("profile:"):
-                _, profile_info = message.split(":", 1)
-                QMessageBox.information(self, "Profil", profile_info)
-            else:
-                self.chat_text.append(message)
-                cursor = self.chat_text.textCursor()
-                cursor.movePosition(QTextCursor.End)
-                self.chat_text.setTextCursor(cursor)
+            # Reste du code pour gérer les autres messages
+            self.chat_text.append(message)
+            cursor = self.chat_text.textCursor()
+            cursor.movePosition(QTextCursor.End)
+            self.chat_text.setTextCursor(cursor)
+
 
     def send_message(self):
         message = self.message_entry.text()
@@ -449,5 +524,3 @@ if __name__ == '__main__':
     client_gui = ClientGUI()
     client_gui.show()
     sys.exit(app.exec_())
-
-
