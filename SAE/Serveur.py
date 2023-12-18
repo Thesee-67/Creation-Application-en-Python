@@ -6,8 +6,7 @@ from datetime import datetime, timedelta
 import logging
 import json
 import time
-from threading import Thread
-
+from threading import *
 
 # Configuration de la base de données
 db_config = {
