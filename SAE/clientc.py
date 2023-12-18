@@ -223,7 +223,7 @@ class ClientGUI(QMainWindow):
         chat_layout.addLayout(bottom_layout)
 
         profil_button = QPushButton("Profil", self)
-        profil_button.clicked.connect(self.afficher_profil)  # Remplacez 'afficher_profil' par la fonction appropriée
+        profil_button.clicked.connect(self.afficher_profil) 
 
         # Créer une étiquette pour le titre
         titre_label = QLabel("Clients Connectés", self)
@@ -366,8 +366,6 @@ class ClientGUI(QMainWindow):
                 cursor = self.chat_text.textCursor()
                 cursor.movePosition(QTextCursor.End)
                 self.chat_text.setTextCursor(cursor)
-
-
 
     def send_message(self):
         message = self.message_entry.text()
