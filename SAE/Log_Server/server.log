@@ -236,3 +236,4 @@ ERROR:root:La connexion avec ('127.0.0.1', 51599) a été réinitialisée par le cli
 ERROR:root:Une exception s'est produite avec ('127.0.0.1', 51646) : [WinError 10053] Une connexion établie a été abandonnée par un logiciel de votre ordinateur hôte
 ERROR:root:La connexion avec ('127.0.0.1', 51647) a été réinitialisée par le client.
 ERROR:root:Une exception s'est produite avec ('127.0.0.1', 51769) : [WinError 10053] Une connexion établie a été abandonnée par un logiciel de votre ordinateur hôte
+ERROR:root:La connexion avec ('127.0.0.1', 51770) a été réinitialisée par le client.
