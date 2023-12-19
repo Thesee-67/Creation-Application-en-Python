@@ -204,7 +204,7 @@ class ClientGUI(QMainWindow):
         self.change_button.clicked.connect(self.change_topic)
 
         info_button = QPushButton(self)
-        info_button.setIcon(QIcon("SAE\Image\Question.png"))
+        info_button.setIcon(QIcon("C:\\Users\\og67g\\OneDrive\\Documents\\BUT RT 2année\\R3.09 Guittet Olivier\\SAE\\Image\\Question.png"))
         info_button.clicked.connect(self.show_instructions)
 
         # Layout pour la zone principale du chat
@@ -484,6 +484,11 @@ class ClientGUI(QMainWindow):
         info_box.setWindowTitle("Informations")
         info_box.setText("Bienvenue sur GuiGui Tchat!<br><br>"
                         "Utilisez le bouton 'Changer de Topic' pour changer de salon du tchat.<br><br>"
+                        "Si vous devez attendre la validation de l'administrateur pour changer de channel vous pouvez continuer d'écrire dans le channel ou vous vous trouvez acctuellement.<br><br>"
+                        "Une fois votre demande de changement de channel acceptée vous serez automatiquement changer de channel vers celui que vous avez demander.<br><br>"
+                        "Mais les channels auquel vous aurez acces sont enregistrés donc vous pouvez changer de channel ou vous etes autoriser sans demander de nouvelle autorisations.<br><br>"
+                        "Si vous cliquez sur le bouton Profil vous pouvez voir vos informations personnel.<br><br>"
+                        "Sur votre droite vous pouvez voir les différents utlisateurs et si ils sont connectés ou non.<br><br>"
                         "Quand vous recevez le message d'arrêt du serveur, veuillez fermer l'application.<br><br>"
                         "Si vous avez des problèmes, n'hésitez pas à contacter l'équipe technique via l'adresse mail suivante <a href='mailto:olivier.guittet@uha.fr'>olivier.guittet@uha.fr</a>.<br><br>"
                         "Cordialement l'équipe technique.")
@@ -524,5 +529,4 @@ if __name__ == '__main__':
     client_gui = ClientGUI()
     client_gui.show()
     sys.exit(app.exec_())
-
 

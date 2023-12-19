@@ -204,7 +204,7 @@ class ClientGUI(QMainWindow):
         self.change_button.clicked.connect(self.change_topic)
 
         info_button = QPushButton(self)
-        info_button.setIcon(QIcon("SAE\Image\Question.png"))
+        info_button.setIcon(QIcon("C:\\Users\\og67g\\OneDrive\\Documents\\BUT RT 2année\\R3.09 Guittet Olivier\\SAE\\Image\\Question.png"))
         info_button.clicked.connect(self.show_instructions)
 
         # Layout pour la zone principale du chat

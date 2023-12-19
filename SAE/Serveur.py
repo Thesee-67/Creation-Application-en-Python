@@ -16,9 +16,6 @@ db_config = {
     'database': 'sae_r309'
 }
 
-logging.basicConfig(filename='SAE\Log_Server\server.log', level=logging.ERROR)
-send_user_info_flag = threading.Event()
-
 
 def execute_query(query, values=None):
     connection = mysql.connector.connect(**db_config)
@@ -936,6 +933,9 @@ if __name__ == '__main__':
     dico2 = {}
     demandes_en_attente = {}
     Salons_topic = ["Général","BlaBla","Comptabilité","Informatique","Marketing"]
+    logging.basicConfig(filename='C:\\Users\\og67g\\OneDrive\\Documents\\BUT RT 2année\\R3.09 Guittet Olivier\\SAE\\Log_Server\\server.log', level=logging.ERROR)
+    send_user_info_flag = threading.Event()
+
 
     server_socket = socket.socket()
     server_socket.bind(('0.0.0.0', port))
