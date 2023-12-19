@@ -203,10 +203,6 @@ class ClientGUI(QMainWindow):
         self.change_button.setStyleSheet("background-color: #FFD600; color: black;")
         self.change_button.clicked.connect(self.change_topic)
 
-        info_button = QPushButton(self)
-        info_button.setIcon(QIcon("C:\\Users\\og67g\\OneDrive\\Documents\\BUT RT 2année\\R3.09 Guittet Olivier\\SAE\\Image\\Question.png"))
-        info_button.clicked.connect(self.show_instructions)
-
         # Layout pour la zone principale du chat
         chat_layout = QVBoxLayout()
         chat_layout.addWidget(header_label)
@@ -216,12 +212,16 @@ class ClientGUI(QMainWindow):
         bottom_layout.addWidget(self.message_entry)
         bottom_layout.addWidget(self.send_button)
         bottom_layout.addWidget(self.change_button)
-        bottom_layout.addWidget(info_button)
 
         chat_layout.addLayout(bottom_layout)
 
         profil_button = QPushButton("Profil", self)
         profil_button.clicked.connect(self.afficher_profil) 
+
+        
+        info_button = QPushButton("Aide", self)
+        info_button.setStyleSheet("background-color: white, color: black;")
+        info_button.clicked.connect(self.show_instructions)
 
         # Créer une étiquette pour le titre
         titre_label = QLabel("Clients Connectés", self)
@@ -238,6 +238,7 @@ class ClientGUI(QMainWindow):
         # Layout pour la liste des utilisateurs
         users_layout = QVBoxLayout()
         users_layout.addWidget(profil_button)
+        users_layout.addWidget(info_button)
         users_layout.addWidget(titre_label)
         users_layout.addWidget(self.users_list_widget)
 
@@ -529,5 +530,4 @@ if __name__ == '__main__':
     client_gui = ClientGUI()
     client_gui.show()
     sys.exit(app.exec_())
-
 
