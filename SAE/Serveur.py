@@ -3,7 +3,6 @@ import threading
 import mysql.connector
 import re
 from datetime import datetime, timedelta 
-import logging
 import json
 import time
 from threading import *
@@ -15,7 +14,6 @@ db_config = {
     'password': 'toto',
     'database': 'sae_r309'
 }
-
 
 def execute_query(query, values=None):
     connection = mysql.connector.connect(**db_config)
@@ -45,21 +43,17 @@ def get_banned_clients():
             return [row[0] for row in result]
         except mysql.connector.Error as mysql_error:
             print(f"Erreur MySQL lors de la récupération des clients bannis : {mysql_error}")
-            logging.error(f"Erreur MySQL lors de la récupération des clients bannis : {mysql_error}")
             return []
         except Exception as e:
             print(f"Erreur inattendue lors de la récupération des clients bannis : {e}")
-            logging.error(f"Erreur inattendue lors de la récupération des clients bannis : {e}")
             return []
         finally:
             cursor.close()
     except mysql.connector.Error as mysql_error:
         print(f"Erreur MySQL lors de la connexion à la base de données : {mysql_error}")
-        logging.error(f"Erreur MySQL lors de la connexion à la base de données : {mysql_error}")
         return []
     except Exception as e:
         print(f"Erreur inattendue lors de la connexion à la base de données : {e}")
-        logging.error(f"Erreur inattendue lors de la connexion à la base de données : {e}")
         return []
     finally:
         if 'connection' in locals() and connection.is_connected():
@@ -78,21 +72,17 @@ def get_kicked_clients():
             return [(row[0], row[1]) for row in result]
         except mysql.connector.Error as mysql_error:
             print(f"Erreur MySQL lors de la récupération des clients kickés : {mysql_error}")
-            logging.error(f"Erreur MySQL lors de la récupération des clients kickés : {mysql_error}")
             return []
         except Exception as e:
             print(f"Erreur inattendue lors de la récupération des clients kickés : {e}")
-            logging.error(f"Erreur inattendue lors de la récupération des clients kickés : {e}")
             return []
         finally:
             cursor.close()
     except mysql.connector.Error as mysql_error:
         print(f"Erreur MySQL lors de la connexion à la base de données : {mysql_error}")
-        logging.error(f"Erreur MySQL lors de la connexion à la base de données : {mysql_error}")
         return []
     except Exception as e:
         print(f"Erreur inattendue lors de la connexion à la base de données : {e}")
-        logging.error(f"Erreur inattendue lors de la connexion à la base de données : {e}")
         return []
     finally:
         if 'connection' in locals() and connection.is_connected():
@@ -110,13 +100,11 @@ def apply_sanction(conn, identifiant, type_sanction, flag_lock=None):
             print(f"{identifiant} c'est fait kick pour 1 heure")
     except Exception as e:
         print(f"Erreur lors de l'application de la sanction : {e}")
-        logging.error(f"Erreur lors de l'application de la sanction : {e}")
     finally:
         try:
             conn.close()
         except Exception as close_error:
             print(f"Erreur lors de la fermeture de la connexion : {close_error}")
-            logging.error(f"Erreur lors de la fermeture de la connexion : {close_error}")
 
 def save_sanction_to_db(identifiant, adresse_ip, type_sanction, flag_lock=None):
     connection = mysql.connector.connect(**db_config)
@@ -146,7 +134,6 @@ def save_sanction_to_db(identifiant, adresse_ip, type_sanction, flag_lock=None):
                 connection.commit()
             except Exception as e:
                 print(f"Erreur lors de l'enregistrement de la sanction dans la base de données : {e}")
-                logging.error(f"Erreur lors de l'enregistrement de la sanction dans la base de données : {e}")
                 connection.rollback()
             finally:
                 cursor.close()
@@ -164,23 +151,19 @@ def is_user_banned(identifiant):
 
         except mysql.connector.Error as mysql_error:
             print(f"Erreur MySQL lors de la vérification du bannissement : {mysql_error}")
-            logging.error(f"Erreur MySQL lors de la vérification du bannissement : {mysql_error}")
             return False
 
         except Exception as e:
             print(f"Erreur inattendue lors de la vérification du bannissement : {e}")
-            logging.error(f"Erreur inattendue lors de la vérification du bannissement : {e}")
             return False
 
         finally:
             cursor.close()
     except mysql.connector.Error as mysql_error:
         print(f"Erreur MySQL lors de la connexion à la base de données : {mysql_error}")
-        logging.error(f"Erreur MySQL lors de la connexion à la base de données : {mysql_error}")
         return False
     except Exception as e:
         print(f"Erreur inattendue lors de la connexion à la base de données : {e}")
-        logging.error(f"Erreur inattendue lors de la connexion à la base de données : {e}")
         return False
     finally:
         if 'connection' in locals() and connection.is_connected():
@@ -208,23 +191,15 @@ def unban(identifiant, flag_lock=None):
 
         except mysql.connector.Error as mysql_error:
             print(f"Erreur MySQL lors du débannissement de {identifiant} : {mysql_error}")
-            logging.error(f"Erreur MySQL lors du débannissement de {identifiant} : {mysql_error}")
-
         except Exception as e:
             print(f"Erreur inattendue lors du débannissement de {identifiant} : {e}")
-            logging.error(f"Erreur inattendue lors du débannissement de {identifiant} : {e}")
-
         finally:
             cursor.close()
 
     except mysql.connector.Error as mysql_error:
         print(f"Erreur MySQL lors de la connexion à la base de données : {mysql_error}")
-        logging.error(f"Erreur MySQL lors de la connexion à la base de données : {mysql_error}")
-
     except Exception as e:
         print(f"Erreur inattendue lors de la connexion à la base de données : {e}")
-        logging.error(f"Erreur inattendue lors de la connexion à la base de données : {e}")
-
     finally:
         if 'connection' in locals() and connection.is_connected():
             connection.close()
@@ -251,23 +226,15 @@ def unkick(identifiant, flag_lock=None):
 
         except mysql.connector.Error as mysql_error:
             print(f"Erreur MySQL lors de l'unkick de {identifiant} : {mysql_error}")
-            logging.error(f"Erreur MySQL lors de l'unkick de {identifiant} : {mysql_error}")
-
         except Exception as e:
             print(f"Erreur inattendue lors de l'unkick de {identifiant} : {e}")
-            logging.error(f"Erreur inattendue lors de l'unkick de {identifiant} : {e}")
-
         finally:
             cursor.close()
 
     except mysql.connector.Error as mysql_error:
         print(f"Erreur MySQL lors de la connexion à la base de données : {mysql_error}")
-        logging.error(f"Erreur MySQL lors de la connexion à la base de données : {mysql_error}")
-
     except Exception as e:
         print(f"Erreur inattendue lors de la connexion à la base de données : {e}")
-        logging.error(f"Erreur inattendue lors de la connexion à la base de données : {e}")
-
     finally:
         if 'connection' in locals() and connection.is_connected():
             connection.close()
@@ -304,7 +271,6 @@ def is_user_kicked(identifiant):
                 return True
     except Exception as e:
         print(f"Erreur lors de la vérification du statut de kick de l'utilisateur : {e}")
-        logging.error(f"Erreur lors de la vérification du statut de kick de l'utilisateur : {e}")
     finally:
         cursor.close()
         connection.close()
@@ -404,7 +370,6 @@ def save_authorization(identifiant, topic):
         connection.commit()
     except Exception as e:
         print(f"Error saving authorization to database: {e}")
-        logging.error(f"Error saving authorization to database: {e}")
         connection.rollback()
     finally:
         cursor.close()
@@ -423,7 +388,6 @@ def insert_user_profile(nom, prenom, adresse_mail, identifiant, mot_de_passe, ad
         print(f"Inserted user profile for {identifiant} successfully.")
     except Exception as e:
         print(f"Error inserting user profile for {identifiant}: {e}")
-        logging.error(f"Error inserting user profile for {identifiant}: {e}")
         connection.rollback()
 
     cursor.close()
@@ -474,7 +438,6 @@ def save_message_to_db(identifiant, message_texte, current_topic, address):
         connection.commit()
     except Exception as e:
         print(f"Error saving message to database: {e}")
-        logging.error(f"Error saving message to database: {e}")
         connection.rollback()
     finally:
         cursor.close()
@@ -783,7 +746,6 @@ def handle_client(conn, address, flag_lock, flag, clients):
 
     except ConnectionResetError:
         print(f"La connexion avec {address} a été réinitialisée par le client.")
-        logging.error(f"La connexion avec {address} a été réinitialisée par le client.")
 
         identifiant = dico.get(conn)
         if identifiant is None:
@@ -797,7 +759,6 @@ def handle_client(conn, address, flag_lock, flag, clients):
 
     except Exception as e:
         print(f"Une exception s'est produite avec {address} : {e}")
-        logging.error(f"Une exception s'est produite avec {address} : {e}")
     finally:
         # Fermer la connexion du client
         conn.close()
@@ -933,9 +894,7 @@ if __name__ == '__main__':
     dico2 = {}
     demandes_en_attente = {}
     Salons_topic = ["Général","BlaBla","Comptabilité","Informatique","Marketing"]
-    logging.basicConfig(filename='C:\\Users\\og67g\\OneDrive\\Documents\\BUT RT 2année\\R3.09 Guittet Olivier\\SAE\\Log_Server\\server.log', level=logging.ERROR)
     send_user_info_flag = threading.Event()
-
 
     server_socket = socket.socket()
     server_socket.bind(('0.0.0.0', port))
@@ -976,10 +935,8 @@ if __name__ == '__main__':
 
     except KeyboardInterrupt:
         print("\nFermeture du serveur suite à une interruption clavier.")
-        logging.error("\nFermeture du serveur suite à une interruption clavier.")
     except Exception as e:
         print(f"Une exception s'est produite : {e}")
-        logging(f"Une exception s'est produite : {e}")
     finally:
         # Attendre que tous les threads clients se terminent avant de fermer le serveur
         for thread in client_threads:
