@@ -220,7 +220,7 @@ class ClientGUI(QMainWindow):
 
         
         info_button = QPushButton("Aide", self)
-        info_button.setStyleSheet("background-color: white, color: black;")
+        info_button.setStyleSheet("background-color: #F0F0F0; color: black;")
         info_button.clicked.connect(self.show_instructions)
 
         # Créer une étiquette pour le titre
