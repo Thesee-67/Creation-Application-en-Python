@@ -6,6 +6,67 @@ import socket
 import re
 import json
 
+"""
+GuiGui TChat Client
+===================
+
+Voici la DocStream du Client de Gui Cgui Tchat.
+
+Classes
+-------
+
+- `MessageSignal`: Un objet de signal pour émettre des signaux liés aux messages et à la mise à jour de la liste des utilisateurs.
+
+- `ConnectionDialog`: Une boîte de dialogue pour la saisie de l'adresse IP et du port du serveur.
+
+- `ClientThread`: Un thread pour gérer la réception des messages du serveur.
+
+- `TopicDialog`: Une boîte de dialogue pour changer de canal (topic).
+
+- `ClientGUI`: La classe principale représentant l'interface graphique du client.
+
+Fonctions
+----------
+
+- `get_connection_info()`: Obtient les informations de connexion à partir de la boîte de dialogue.
+
+- `valid_ip(ip, port_text)`: Valide l'adresse IP et le port saisis.
+
+- `handle_message(message)`: Gère les messages reçus du serveur.
+
+- `send_message()`: Envoie un message au serveur.
+
+- `change_topic()`: Permet à l'utilisateur de changer de canal (topic).
+
+- `show_instructions()`: Affiche une boîte de dialogue avec des instructions pour l'utilisation de l'application.
+
+- `afficher_profil()`: Envoie une requête pour afficher le profil de l'utilisateur.
+
+- `handle_profile_info(profile_info)`: Gère les informations du profil reçues du serveur.
+
+- `show_custom_information(title, profile_info)`: Affiche une boîte de dialogue personnalisée avec des informations.
+
+- `update_users_list_widget(users_info)`: Met à jour la liste des utilisateurs connectés dans l'interface graphique.
+
+- `_show_error_dialog(error_message)`: Affiche une boîte de dialogue d'erreur.
+
+- `connect_to_server()`: Établit la connexion au serveur.
+
+- `closeEvent(event)`: Gère l'événement de fermeture de la fenêtre.
+
+Conditions préalables
+---------------------
+
+- Assurez-vous que PyQt5 est installé sur votre système.
+
+- Un serveur GuiGui TChat doit être en cours d'exécution pour que le client puisse se connecter.
+
+Exécution
+---------
+
+Lancez le script avec Python pour démarrer l'application client GuiGui TChat.
+
+"""
         
 class MessageSignal(QObject):
     message_received = pyqtSignal(str)
