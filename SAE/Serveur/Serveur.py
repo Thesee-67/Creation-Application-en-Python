@@ -7,6 +7,41 @@ import json
 import time
 from threading import *
 
+"""
+Script principal pour le serveur de chat multi-utilisateurs.
+
+Le script crée un serveur socket qui accepte les connexions des clients, gère les connexions client via des threads,
+et offre un shell de commande pour administrer le serveur. Le serveur prend en charge plusieurs fonctionnalités,
+telles que le changement de salon, la gestion des sanctions, la demande de profil, et l'envoi d'informations aux clients.
+
+Auteurs :
+    - Guittet Olivier
+
+Fonctions :
+    - `server_shell(flag_lock, flag, clients)`: Fonction pour le shell du serveur.
+    - `handle_client(conn, address, flag_lock, flag, clients)`: Fonction pour gérer la connexion client.
+    - `start_send_user_info(clients, flag_lock)`: Fonction pour démarrer l'envoi d'informations utilisateur.
+    - `send_user_info(clients, flag_lock)`: Fonction pour envoyer des informations utilisateur.
+    - `create_user_profile(conn)`: Fonction pour créer un profil utilisateur.
+    - `is_user_banned(identifiant)`: Fonction pour vérifier si un utilisateur est banni.
+    - `is_user_kicked(identifiant)`: Fonction pour vérifier si un utilisateur est kické.
+    - `check_user_credentials(identifiant, mot_de_passe)`: Fonction pour vérifier les identifiants d'un utilisateur.
+    - `is_valid_name(nom)`: Fonction pour vérifier la validité du nom.
+    - `is_valid_prenom(prenom)`: Fonction pour vérifier la validité du prénom.
+    - `is_valid_email(adresse_mail)`: Fonction pour vérifier la validité de l'adresse e-mail.
+    - `is_valid_identifiant(identifiant)`: Fonction pour vérifier la validité de l'identifiant.
+    - `is_valid_mot_de_passe(mot_de_passe)`: Fonction pour vérifier la validité du mot de passe.
+    - `user_exists(identifiant)`: Fonction pour vérifier si un utilisateur existe.
+    - `insert_user_profile(nom, prenom, adresse_mail, identifiant, mot_de_passe, ip)`: Fonction pour insérer un profil utilisateur dans la base de données.
+    - `save_authorization(identifiant, topic)`: Fonction pour enregistrer une autorisation dans la table d'autorisations.
+    - `save_message_to_db(identifiant, message, topic, ip)`: Fonction pour enregistrer un message dans la base de données.
+    - `apply_sanction(conn, identifiant, sanction_type, flag_lock)`: Fonction pour appliquer une sanction (ban ou kick) à un utilisateur.
+    - `unban(identifiant)`: Fonction pour lever le ban d'un utilisateur.
+    - `unkick(identifiant)`: Fonction pour lever la sanction kick d'un utilisateur.
+    - `get_banned_clients()`: Fonction pour obtenir la liste des clients bannis.
+    - `get_kicked_clients()`: Fonction pour obtenir la liste des clients kickés.
+"""
+
 # Configuration de la base de données
 db_config = {
     'host': 'localhost',
@@ -527,6 +562,13 @@ def start_send_user_info(clients, flag_lock):
     send_user_info(clients, flag_lock)
 
 def create_user_profile(conn):
+    """
+    Crée un profil utilisateur en demandant des informations à l'utilisateur.
+
+    :param conn: Objet de connexion pour le client
+    :type conn: socket.socket
+    """
+
     conn.send("Bienvenue !\n".encode())
 
     while True:
@@ -539,7 +581,7 @@ def create_user_profile(conn):
             while login_attempt < 3:
                 conn.send("Entrez votre identifiant : ".encode())
                 identifiant = conn.recv(1024).decode()
-                conn.send(f"Vous avez rentrer l'identifiant :{identifiant}.\n".encode())
+                conn.send(f"Vous avez rentreé l'identifiant :{identifiant}.\n".encode())
 
                 dico[conn] = identifiant
                 dico2[identifiant] = conn
@@ -664,6 +706,20 @@ def create_user_profile(conn):
             conn.send("Réponse non valide. Veuillez répondre par 'Oui' ou 'Non'.\n".encode())
 
 def handle_client(conn, address, flag_lock, flag, clients):
+    """
+    Gère la connexion d'un client, y compris la création de profil, les changements de salon, et la réception/envoi de messages.
+
+    :param conn: Objet de connexion pour le client
+    :type conn: socket.socket
+    :param address: Adresse du client
+    :type address: tuple
+    :param flag_lock: Serrure pour assurer la cohérence entre les threads sur le drapeau
+    :type flag_lock: threading.Lock
+    :param flag: Drapeau pour contrôler l'exécution du serveur
+    :type flag: list
+    :param clients: Liste des clients connectés
+    :type clients: list
+    """
     flag2 = True
     
     
@@ -763,7 +819,18 @@ def handle_client(conn, address, flag_lock, flag, clients):
         # Fermer la connexion du client
         conn.close()
 
-def server_shell(flag_lock, flag, clients,):
+def server_shell(flag_lock, flag, clients,):  
+    """
+    Gère le shell du serveur, permettant des commandes pour contrôler le serveur.
+
+    :param flag_lock: Serrure pour assurer la cohérence entre les threads sur le drapeau
+    :type flag_lock: threading.Lock
+    :param flag: Drapeau pour contrôler l'exécution du serveur
+    :type flag: list
+    :param clients: Liste des clients connectés
+    :type clients: list
+    """
+  
     if not authenticate_shell():
         return
 
@@ -884,6 +951,45 @@ def server_shell(flag_lock, flag, clients,):
             print("Commande non reconnue. Pour voir les commandes utilisez 'showcommande' .")
 
 if __name__ == '__main__':
+    """
+    Point d'entrée principal du serveur de chat.
+
+    Ce bloc de code est exécuté lorsque le script est lancé directement.
+
+    - Initialise les paramètres du serveur.
+    - Crée les structures de données nécessaires.
+    - Démarre le thread pour le shell du serveur.
+    - Crée le socket du serveur et écoute les connexions entrantes.
+    - Crée un thread pour chaque client connecté.
+
+    :param port: Port sur lequel le serveur écoute les connexions.
+    :type port: int
+    :param flag: Drapeau pour contrôler l'exécution du serveur.
+    :type flag: list
+    :param flag_lock: Serrure pour assurer la cohérence entre les threads sur le drapeau.
+    :type flag_lock: threading.Lock
+    :param clients: Liste des clients connectés.
+    :type clients: list
+    :param dico3: Dictionnaire pour stocker les relations entre les identifiants des clients et les sujets actuels.
+    :type dico3: dict
+    :param dico: Dictionnaire pour stocker les relations entre les connexions des clients et leurs identifiants.
+    :type dico: dict
+    :param dico2: Dictionnaire pour stocker les relations entre les identifiants des clients et leurs connexions.
+    :type dico2: dict
+    :param demandes_en_attente: Dictionnaire pour stocker les demandes de changement de sujet en attente.
+    :type demandes_en_attente: dict
+    :param Salons_topic: Liste des sujets disponibles pour les salons de chat.
+    :type Salons_topic: list
+    :param send_user_info_flag: Drapeau pour indiquer quand envoyer des informations sur les utilisateurs.
+    :type send_user_info_flag: threading.Event
+    :param server_socket: Socket du serveur pour accepter les connexions.
+    :type server_socket: socket.socket
+    :param shell_thread: Thread pour gérer le shell du serveur.
+    :type shell_thread: threading.Thread
+    :param send_user_info_thread: Thread pour envoyer des informations sur les utilisateurs aux clients.
+    :type send_user_info_thread: threading.Thread
+    """
+        
     port = 10000
     flag = [True]
     flag_lock = threading.Lock()
