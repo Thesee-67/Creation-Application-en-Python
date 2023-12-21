@@ -69,8 +69,8 @@ Lancez le script avec Python pour démarrer l'application client GuiGui TChat.
 """
         
 class MessageSignal(QObject):
-    message_received = pyqtSignal(str)
-    error_occurred = pyqtSignal(str)
+    message_received = pyqtSignal(str)  # Ajout du signal pour gerer la reception de messages.
+    error_occurred = pyqtSignal(str) 
     update_users_list = pyqtSignal(list)  # Ajout du signal pour la mise à jour de la liste des utilisateurs
 
 
@@ -284,7 +284,7 @@ class ClientGUI(QMainWindow):
         info_button.setStyleSheet("background-color: #F0F0F0; color: black;")
         info_button.clicked.connect(self.show_instructions)
 
-        # Créer une étiquette pour le titre
+        # Etiquette pour le titre
         titre_label = QLabel("Clients Connectés", self)
         titre_label.setStyleSheet("background-color: #3498db; color: white;")
         titre_label.setAlignment(Qt.AlignCenter)
@@ -350,7 +350,6 @@ class ClientGUI(QMainWindow):
         self.client_socket.send("profile:request".encode())
 
     def format_profile_data(self, profile_data):
-        # Assurez-vous que la liste a au moins 5 éléments
         if len(profile_data) >= 5:
             # Les noms des champs
             fields = ["Nom", "Prénom", "Identifiant","Adresse IP", "Adresse Email"]
@@ -360,12 +359,11 @@ class ClientGUI(QMainWindow):
 
             return formatted_text
 
-        # Si la liste n'a pas assez d'éléments, renvoyez une chaîne vide
+        # Si la liste n'a pas assez d'éléments, renvoie une chaîne vide
         return ""
 
 
     def handle_profile_info(self, profile_info,):
-        # Assurez-vous que profile_info est une liste non vide
         if profile_info and isinstance(profile_info, list):
             # Formatez les données du profil
             formatted_profile = self.format_profile_data(profile_info)
@@ -523,7 +521,7 @@ class ClientGUI(QMainWindow):
         # Créer une instance de QMessageBox
         info_box = QMessageBox(self)
 
-        # Appliquer le style uniquement à cette instance
+        # Style uniquement à cette instance
         info_box.setStyleSheet("""
             QMessageBox {
                 background-color: orange; /* Fond blanc */
@@ -578,7 +576,7 @@ class ClientGUI(QMainWindow):
                 self.wait_condition.wakeAll()
 
             self.receive_thread.finished.connect(self.receive_thread.quit)  # Connecter le signal finished à la méthode quit
-            self.receive_thread.quit()  # Ajouter cette ligne pour quitter le thread de manière propre
+            self.receive_thread.quit()  
             self.receive_thread.wait()  # Attendre que le thread de réception se termine
 
             event.accept()  # Accepter la fermeture de la fenêtre
