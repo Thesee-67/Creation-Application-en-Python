@@ -12,7 +12,7 @@ Script principal pour le serveur de chat multi-utilisateurs.
 
 Le script crée un serveur socket qui accepte les connexions des clients, gère les connexions client via des threads,
 et offre un shell de commande pour administrer le serveur. Le serveur prend en charge plusieurs fonctionnalités,
-telles que le changement de salon, la gestion des sanctions, la demande de profil, et l'envoi d'informations aux clients.
+telles que le changement de salon, la gestion des sanctions, la demande de profil, et l'envoi d'informations aux clients, etc.
 
 Auteurs :
     - Guittet Olivier
@@ -953,8 +953,6 @@ def server_shell(flag_lock, flag, clients,):
 if __name__ == '__main__':
     """
     Point d'entrée principal du serveur de chat.
-
-    Ce bloc de code est exécuté lorsque le script est lancé directement.
 
     - Initialise les paramètres du serveur.
     - Crée les structures de données nécessaires.
