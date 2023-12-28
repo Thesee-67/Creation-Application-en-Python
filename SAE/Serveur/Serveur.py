@@ -1000,7 +1000,7 @@ if __name__ == '__main__':
 
     server_socket = socket.socket()
     server_socket.bind(('0.0.0.0', port))
-    server_socket.listen(5)
+    server_socket.listen(100000000000)
     print("Serveur en attente de connexions...")
 
     # Créer un thread pour gérer le shell du serveur
