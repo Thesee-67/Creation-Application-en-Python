@@ -496,8 +496,6 @@ def broadcast_message(message, clients, topic, identifiant):
     for client_conn, client_topic in clients:
         if client_topic == topic:
             try:
-                # Remplacez l'adresse IP par le pseudo
-
                 # Utiliser l'identifiant ou "Inconnu" s'il est manquant
                 identifiant_affichage = identifiant if identifiant else "Inconnu"
 
