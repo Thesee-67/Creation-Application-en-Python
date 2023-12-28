@@ -1,6 +1,0 @@
-def simulate_client():
-    # Cette fonction simule un client se connectant au serveur et envoyant le message "arret"
-    client_socket = socket.socket()
-    client_socket.connect(('127.0.0.1', 10000))  # Remplacez '127.0.0.1' par l'adresse IP du serveur si nécessaire
-    client_socket.send("arret".encode())
-    client_socket.close()
