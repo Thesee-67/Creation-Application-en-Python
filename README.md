@@ -4,7 +4,7 @@ Ce projet à pour but de crée une application de communication Client Serveur. 
 
 - **Description** : Ce dépôt contient des applications Python développées dans le cadre d'un projet.
 - **Contenu** : Vous trouverez plusieurs fichiers, notament la documentation d'installation et d'utilisation du Serveur et des Clients.
-- **Historique** : Le projet a été réalisé en 
+- **Historique** : Le projet a été réalisé en 2023
 - **Langage** : Tous les fichiers sont écrits en Python.
 
 ## Installation
